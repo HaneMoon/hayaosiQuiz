@@ -1,3 +1,10 @@
+https://helixcode.notion.site/Web-43b261e9536e4131b839a05800c20ce2
+環境はほとんどこれを読み進めてできたやつ
+
+バージョン
+node : 22.21.1
+bun : 1.3.2
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
