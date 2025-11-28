@@ -1,6 +1,6 @@
 // src/pages/Game.jsx
 
-import React, { useEffect, useCallback } from 'react'; // ⭐ useState を削除
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useGame from '../hooks/useGame';
 import QuestionDisplay from '../components/QuestionDisplay';
@@ -10,11 +10,11 @@ import ResultDisplay from '../components/ResultDisplay';
 
 // コンポーネントは JSX を含むため、拡張子を .jsx とします
 
-const Game = ({ myPlayerId, onGameEnd, propGameId }) => { // propGameId を受け取る
+const Game = ({ myPlayerId, onGameEnd, propGameId }) => { 
   // ルーティングから gameId を取得
   const { gameId: routeGameId } = useParams();
   // 優先順位: 1. propで渡されたID (Appの状態) -> 2. ルートID -> 3. 開発用仮ID
-  const actualGameId = propGameId || routeGameId || myPlayerId; // myPlayerId は最終手段として残す
+  const actualGameId = propGameId || routeGameId || myPlayerId; 
   
   const navigate = useNavigate();
 
@@ -22,26 +22,28 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => { // propGameId を受�
   const { 
     gameState, 
     opponentName, 
-    myPlayerName,
-    handlePlayerBuzz, // 早押し処理
-    // ⭐ processAnswer を削除
+    buzz, // ⭐ 修正: buzz: onBuzz ではなく、buzz として取得する
+    submitAnswer, 
     isHost, 
   } = useGame(actualGameId, myPlayerId);
 
   // --- ゲームの状態表示に必要な変数 ---
+  const myPlayerName = gameState?.players?.[myPlayerId]?.name || 'あなた'; 
   const currentQuestionText = gameState?.currentQuestion?.text || "問題の出題を待っています...";
   const gameStatus = gameState?.status; // 'waiting', 'playing', 'finished'
   const players = gameState?.players || {};
   const winnerId = gameState?.winner;
-  const answererId = gameState?.currentQuestion?.answererId;
-  const buzzedPlayerId = gameState?.currentQuestion?.buzzedPlayerId;
+  
+  const answererId = gameState?.currentQuestion?.answererId; // 解答権を持つプレイヤー
+  const buzzedPlayerId = gameState?.currentQuestion?.buzzedPlayerId; // 早押しボタンを押したプレイヤー
+  const qStatus = gameState?.currentQuestion?.status; // 'reading', 'answering', 'judging', ...
 
   // プレイヤーが解答権を持っているか
-  const isMyTurn = answererId === myPlayerId; 
+  const isMyTurn = answererId === myPlayerId && qStatus === 'answering'; 
   // 誰かが早押しボタンを押した状態か
   const isBuzzing = !!buzzedPlayerId; 
   // 問題に解答があったか (ホストが判定待ちの状態など)
-  const isAnswered = answererId !== null; 
+  const isAnswered = ['judging', 'answered_correct', 'answered_wrong'].includes(qStatus); 
 
   // --- プレイヤー情報の設定と取得 ---
   useEffect(() => {
@@ -64,26 +66,18 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => { // propGameId を受�
   // --- 操作ロジック ---
 
   // 早押し処理
-  const onBuzz = useCallback(() => {
-    if (gameStatus === 'playing' && !isBuzzing) {
-      // 誰かが押していない、かつゲーム中であれば、早押し情報を送信
-      handlePlayerBuzz(actualGameId, myPlayerId);
-    }
-  }, [gameStatus, isBuzzing, actualGameId, myPlayerId, handlePlayerBuzz]);
+  // ⭐ 修正: 以前ここで定義されていた const onBuzz = () => { ... } は削除
+  // useGameから取得した buzz 関数をそのまま onBuzz として使用する
 
-  // 解答送信処理 (解答権を持ったプレイヤーが実行)
-  const onSubmitAnswer = useCallback((answer) => {
-    if (isMyTurn) {
-      // 実際には、ホストであるかに関わらずこの関数が呼ばれるが、
-      // 判定処理(processAnswer)はホスト側でのみDBリスナーを通じて実行されるのが理想
-      // ここでは、解答権を持ったプレイヤーがFirebaseに解答を書き込むアクションを定義
-      console.log(`解答を送信: ${answer}`);
-      // DBに解答を書き込む関数 (例: recordAnswer(actualGameId, myPlayerId, answer))
-      
-      // ホストであれば即座に判定処理を走らせることもできるが、
-      // リアルタイム性を重視し、DBへの書き込みをトリガーに useGame.js 内のホストリスナーで判定するのが一般的
+  const onBuzz = () => {
+    if (gameStatus === 'playing' && !isBuzzing) {
+      // 誰かが押していない、かつゲーム中であれば、useGameから取得した buzz 関数を呼び出す
+      buzz();
     }
-  }, [isMyTurn]);
+  };
+
+  // 解答送信処理 (useGameから取得した submitAnswer をそのまま使用)
+  const onSubmitAnswer = submitAnswer;
 
 
   // --- レンダリング ---
@@ -110,7 +104,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => { // propGameId を受�
       </div>
     );
   }
-
+  
   // 3. プレイ中のメイン画面
   return (
     <div>
@@ -131,19 +125,25 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => { // propGameId を受�
       />
 
       {/* 状況メッセージ */}
-      {buzzedPlayerId && buzzedPlayerId !== myPlayerId && (
+      {buzzedPlayerId && buzzedPlayerId !== myPlayerId && qStatus === 'answering' && (
         <p style={{ color: 'orange' }}>
-          {players[buzzedPlayerId]?.name || '誰か'} が早押ししました！
+          {players[buzzedPlayerId]?.name || '誰か'} が早押ししました！解答権があります。
         </p>
       )}
+      {qStatus === 'judging' && <p style={{ color: 'blue', fontWeight: 'bold' }}>ホストが解答を判定中です...</p>}
       {isMyTurn && <p style={{ color: 'green', fontWeight: 'bold' }}>解答権はあなたにあります！</p>}
+      {qStatus === 'answered_correct' && <p style={{ color: 'green', fontWeight: 'bold' }}>正解！次の問題へ...</p>}
+      {qStatus === 'answered_wrong' && <p style={{ color: 'red', fontWeight: 'bold' }}>誤答です...</p>}
+
 
       {/* 入力コンポーネント */}
       <AnswerInput 
-        onBuzz={onBuzz}
+        key={isMyTurn ? 'myturn' : 'notmyturn'} 
+        onBuzz={onBuzz} // ⭐ 修正した onBuzz 関数を渡す
         onSubmitAnswer={onSubmitAnswer}
         isMyTurn={isMyTurn}
-        isAnswerSelectable={currentQuestionText.includes('（選択式）')} // 暫定ロジック
+        options={gameState?.currentQuestion?.options} 
+        isAnswerSelectable={gameState?.currentQuestion?.isSelectable} 
       />
       
     </div>
