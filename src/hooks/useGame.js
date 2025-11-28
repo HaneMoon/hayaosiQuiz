@@ -1,10 +1,9 @@
 // src/hooks/useGame.js
 
-import { useState, useEffect, useCallback } from 'react'; // useCallbackをインポート
-import { onValue, ref, get, update } from 'firebase/database';
+import { useState, useEffect, useCallback } from 'react';
+import { onValue, ref, get, update, remove } from 'firebase/database';
 import { db, createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
-// db.jsから必要なFirebase関数をインポート
-import { QUIZ_QUESTIONS } from '../utils/constants'; // 問題データをインポート
+import { QUIZ_QUESTIONS } from '../utils/constants'; 
 
 
 // 問題をシャッフルするシンプルな関数
@@ -16,6 +15,15 @@ const shuffleArray = (array) => {
     return array;
 };
 
+// 教科名の日本語とFirebaseノード名のマッピング
+const subjectNodeMap = {
+    '国語': 'japanese',
+    '数学': 'mathematics',
+    '理科': 'science',
+    '社会': 'social',
+    '英語': 'english',
+};
+
 /**
  * ゲームの状態管理とFirebaseとの通信を担うメインフック
  * @param {string | null} initialGameId - 現在接続しているゲームID (マッチング後は設定される)
@@ -25,87 +33,205 @@ const useGame = (initialGameId, myPlayerId) => {
   const [gameId, setGameId] = useState(initialGameId);
   const [gameState, setGameState] = useState(null);
   const [opponentName, setOpponentName] = useState('');
+  // 問題リストの状態を追加（ホストが一度だけ取得し、Stateに保存）
+  const [questionList, setQuestionList] = useState(null); 
   
   // 自分がホストかどうかを判定
   const isHost = gameState?.players?.[myPlayerId]?.isHost === true; 
 
   // --- ユーティリティ関数 ---
+
+  // Firebaseから問題を取得し、Stateに保存する関数 (ホスト専用)
+  const fetchQuestionsForGame = useCallback(async (settings) => {
+    const allQuestionsRef = ref(db, 'questions');
+    const snapshot = await get(allQuestionsRef);
+    
+    let allFirebaseQuestions = {};
+    if (snapshot.exists()) {
+        allFirebaseQuestions = snapshot.val();
+        console.log("[DEBUG: Q Fetch] Loaded Firebase questions:", allFirebaseQuestions);
+    } else {
+        console.warn("[Game] Firebaseに問題データが見つかりません。");
+    }
+
+    let filteredQuestions = [];
+    const subjectsToUse = settings?.range?.subjects || [];
+    console.log(`[DEBUG: Q Fetch] Settings Subjects: ${subjectsToUse.join(', ')}`);
+
+    // Firebaseからの問題と、ローカルのQUIZ_QUESTIONSを統合
+    let combinedQuestions = {};
+    
+    // Firebaseからの問題をcombinedQuestionsに追加
+    for (const [subjectNode, subjectQuestions] of Object.entries(allFirebaseQuestions)) {
+        const japaneseSubject = Object.keys(subjectNodeMap).find(key => subjectNodeMap[key] === subjectNode);
+        if (subjectsToUse.includes(japaneseSubject) || subjectsToUse.includes(subjectNode)) {
+            // Firebaseのoptionsがオブジェクト形式の場合に備えて変換
+            Object.values(subjectQuestions).forEach(q => {
+                const questionId = q.questionId || q.id || `firebase_${Object.keys(combinedQuestions).length}`;
+                combinedQuestions[questionId] = {
+                    ...q,
+                    // options がオブジェクトなら配列に変換してから格納
+                    options: q.options ? (Array.isArray(q.options) ? q.options : Object.values(q.options)) : null,
+                };
+            });
+        }
+    }
+
+    // ローカルのQUIZ_QUESTIONSから、設定に合うものをcombinedQuestionsに追加
+    QUIZ_QUESTIONS.forEach(q => {
+        if (subjectsToUse.includes(q.subject)) {
+            const questionId = q.id || `local_${Object.keys(combinedQuestions).length}`;
+            if (!combinedQuestions[questionId]) { // Firebaseと重複しないように
+                combinedQuestions[questionId] = q;
+            }
+        }
+    });
+
+    // 最終的な filteredQuestions を生成
+    filteredQuestions = Object.values(combinedQuestions).map(q => {
+        // isSelectable の判定を強化: options が配列で、かつ要素がある場合
+        const hasValidOptions = Array.isArray(q.options) && q.options.length > 0;
+        return {
+            ...q,
+            isSelectable: hasValidOptions,
+        };
+    });
+    
+    // フィルタリング結果が空の場合、常にQUIZ_QUESTIONSを代替として使用
+    if (filteredQuestions.length === 0) {
+        console.warn("[Game] 設定された条件に合う問題が見つかりません。ローカルのQUIZ_QUESTIONSを使用します。");
+        filteredQuestions = QUIZ_QUESTIONS.map(q => ({
+            ...q,
+            isSelectable: Array.isArray(q.options) && q.options.length > 0, // ローカルでも判定
+        }));
+    }
+    
+    const shuffledQuestions = shuffleArray(filteredQuestions);
+    setQuestionList(shuffledQuestions);
+    console.log(`[Game] 合計 ${shuffledQuestions.length} 問の問題を取得しました。`);
+    return shuffledQuestions;
+
+  }, []);
+
   // 次の問題を設定する関数 (ホスト専用)
-  const setNextQuestion = async (id, currentQuestionIndex) => {
-    const questions = shuffleArray([...QUIZ_QUESTIONS]); // 問題リストをシャッフルして取得
+  const setNextQuestion = useCallback(async (id, currentQuestionIndex) => {
+    if (!questionList) {
+        console.error("[Game] 問題リストがまだロードされていません。");
+        return;
+    }
+    
+    const questions = questionList; 
     const nextQuestionIndex = currentQuestionIndex + 1;
 
+    const winPoints = gameState?.rules?.winPoints || 8;
+    const players = gameState.players; 
+    
+    const isPlayerWon = Object.values(players).some(p => p.score >= winPoints);
+
+    if (isPlayerWon) {
+        console.log("[Game] どちらかのプレイヤーが勝利点に達しました。リザルト画面に移行します。");
+        const playerScores = Object.values(players).map(p => ({ id: p.id, score: p.score }));
+        const potentialWinners = playerScores.filter(p => p.score >= winPoints);
+        const winner = potentialWinners.reduce((prev, current) => (prev.score > current.score) ? prev : current, { score: -1 });
+
+        await update(ref(db, `games/${id}`), {
+            status: 'finished', 
+            winner: winner.id,
+        });
+        return;
+    }
+    
     if (nextQuestionIndex < questions.length) {
       const nextQuestion = questions[nextQuestionIndex];
       const gameRef = ref(db, `games/${id}`);
       
+      const nextQuestionId = nextQuestion.questionId || nextQuestion.id || 'q_fallback_' + nextQuestionIndex; 
+
+      // ⭐ 修正: 選択肢が存在する場合、シャッフルする
+      let shuffledOptions = nextQuestion.options;
+      if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
+        // シャッフルは元の配列を破壊するため、コピーを作成してシャッフル
+        shuffledOptions = shuffleArray([...shuffledOptions]);
+        console.log(`[Shuffle] Question #${nextQuestionId} の選択肢をシャッフルしました。`);
+      }
+
       await update(gameRef, {
-        currentQuestionIndex: nextQuestionIndex, // 問題インデックスを更新
+        currentQuestionIndex: nextQuestionIndex, 
         currentQuestion: {
-          id: nextQuestion.id,
+          id: nextQuestionId, 
           text: nextQuestion.text,
           answer: nextQuestion.answer,
           isSelectable: nextQuestion.isSelectable,
-          options: nextQuestion.options || null, // 選択肢があれば設定
-          buzzedPlayerId: null, // 早押し状態をリセット
-          answererId: null, // 解答権をリセット
-          status: 'reading', // 状態を「読み上げ中」に設定
+          options: shuffledOptions || null, // ⭐ シャッフルした選択肢を使用
+          buzzedPlayerId: null, 
+          answererId: null, 
+          status: 'reading',
+          lockedOutPlayers: [], 
         }
       });
-      console.log(`[Game] 次の問題 #${nextQuestion.id} を設定しました。`);
+      console.log(`[Game] 次の問題 #${nextQuestionId} を設定しました。`);
     } else {
-        // 全問終了の場合
         console.log("[Game] 全ての問題が終了しました。リザルト画面に移行します。");
-        // TODO: スコアをチェックし、勝者を決定してステータスを 'result' に更新するロジック
-        const players = gameState.players;
         const playerScores = Object.values(players).map(p => ({ id: p.id, score: p.score }));
         const winner = playerScores.reduce((prev, current) => (prev.score > current.score) ? prev : current);
         
         await update(ref(db, `games/${id}`), {
-            status: 'result',
-            winnerId: winner.id,
+            status: 'finished', 
+            winner: winner.id,
         });
     }
-  };
+  }, [questionList, gameState]); 
 
 
-  // --- ゲーム開始処理 (ホスト専用) ---
+  // --- ゲーム開始処理 (ホスト専用)
   const startGame = useCallback(async (id) => {
-    // ホストでないか、IDがないか、waiting中でない場合は実行しない
     if (!gameState?.players?.[myPlayerId]?.isHost || !id || gameState.status !== 'waiting') return; 
-
+    
+    let questions = questionList;
+    if (!questions) {
+        questions = await fetchQuestionsForGame(gameState.settings);
+        if (!questions || questions.length === 0) {
+            console.error("[Game] ゲームを開始できません。問題データがありません。");
+            return;
+        }
+    }
+    
     const gameRef = ref(db, `games/${id}`);
     
-    // 初期のゲーム状態を設定
-    const initialQuestions = shuffleArray([...QUIZ_QUESTIONS]); // 問題リストをシャッフル
-    const initialQuestion = initialQuestions[0]; // 最初の問題を取得
+    const initialQuestion = questions[0]; 
 
-    // 全プレイヤーのスコアを初期化 (初回のみ)
     const initialPlayersUpdate = Object.keys(gameState.players).reduce((acc, playerId) => {
         acc[`players/${playerId}/score`] = 0;
         return acc;
     }, {});
+    
+    const initialQuestionId = initialQuestion.questionId || initialQuestion.id || 'q_fallback_0';
 
+    // ⭐ 修正: 最初の問題もシャッフルする
+    let shuffledOptions = initialQuestion.options;
+    if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
+        shuffledOptions = shuffleArray([...shuffledOptions]);
+        console.log(`[Shuffle] Question #${initialQuestionId} の選択肢をシャッフルしました。`);
+    }
 
-    // ステータスを 'playing' に変更し、最初の問題を設定する
     await update(gameRef, {
-        ...initialPlayersUpdate, // スコア初期化
+        ...initialPlayersUpdate, 
         status: 'playing',
-        currentQuestionIndex: 0, // 問題インデックスを0から開始
+        currentQuestionIndex: 0, 
         currentQuestion: {
-            id: initialQuestion.id,
+            id: initialQuestionId, 
             text: initialQuestion.text,
             answer: initialQuestion.answer,
             isSelectable: initialQuestion.isSelectable,
-            options: initialQuestion.options || null,
-            buzzedPlayerId: null, // 早押し状態をリセット
-            answererId: null, // 解答権をリセット
-            status: 'reading', // 状態を「読み上げ中」に設定
+            options: shuffledOptions || null, // ⭐ シャッフルした選択肢を使用
+            buzzedPlayerId: null, 
+            answererId: null, 
+            status: 'reading', 
+            lockedOutPlayers: [], 
         },
-        // TODO: 問題が読み終わった後の状態(waiting_answer)への移行タイマー設定
     });
     console.log(`[Game] ゲームID ${id} のステータスを 'playing' に更新し、最初の問題を設定しました。`);
-  }, [gameState, myPlayerId]); // 依存配列に gameState, myPlayerId を含める
+  }, [gameState, myPlayerId, questionList, fetchQuestionsForGame]); 
 
 
   // --- 早押し処理 ---
@@ -114,95 +240,135 @@ const useGame = (initialGameId, myPlayerId) => {
     
     const currentQ = gameState.currentQuestion;
 
-    // 既に誰かが押している、または解答権がある場合は無視
-    if (currentQ.buzzedPlayerId || currentQ.answererId) return;
-
-    // Firebaseのトランザクションで、早押しプレイヤーを記録
-    const gameRef = ref(db, `games/${gameId}`);
-    await update(gameRef, {
-        'currentQuestion/buzzedPlayerId': myPlayerId, // 押したプレイヤーID
-        'currentQuestion/answererId': myPlayerId, // そのまま解答権を与える
-        'currentQuestion/status': 'answering', // 状態を「解答中」に
-    });
-    console.log(`[Buzz] プレイヤー ${myPlayerId} が早押ししました。`);
-
-  }, [gameId, gameState, myPlayerId]); // 依存配列に gameId, gameState, myPlayerId を含める
-
-
-  // --- 解答処理 (仮) ---
-  const submitAnswer = useCallback(async (answerText) => {
-    if (!gameId || gameState?.status !== 'playing' || gameState.currentQuestion?.answererId !== myPlayerId) return;
-
-    const currentQ = gameState.currentQuestion;
-    const isCorrect = answerText === currentQ.answer; // 厳密に比較
+    const isLockedOut = currentQ.lockedOutPlayers?.includes(myPlayerId);
+    if (currentQ.buzzedPlayerId || currentQ.answererId || isLockedOut) return;
 
     const gameRef = ref(db, `games/${gameId}`);
     
-    if (isCorrect) {
-        // 正解の場合
-        const newScore = (gameState.players[myPlayerId]?.score || 0) + 1;
-        
-        await update(gameRef, {
-            [`players/${myPlayerId}/score`]: newScore, // スコア加算
-            'currentQuestion/status': 'answered_correct', // 正解としてマーク
-            // TODO: 次の問題への移行タイマーを設定
-        });
-        console.log(`[Answer] 正解！スコアが ${newScore} になりました。`);
+    await update(gameRef, {
+        'currentQuestion/buzzedPlayerId': myPlayerId, 
+        'currentQuestion/answererId': myPlayerId, 
+        'currentQuestion/status': 'answering', 
+    });
+    console.log(`[Buzz] プレイヤー ${myPlayerId} が早押ししました。`);
 
-        // 次の問題へ移行
-        setTimeout(() => {
-            if (isHost) {
+  }, [gameId, gameState, myPlayerId]);
+
+
+  // --- 解答送信処理 (クライアント/ホスト共通) ---
+  const submitAnswer = useCallback(async (answerText) => {
+    if (!gameId || gameState?.status !== 'playing' || gameState.currentQuestion?.answererId !== myPlayerId) return;
+
+    const gameRef = ref(db, `games/${gameId}`);
+    
+    await update(gameRef, {
+        'currentQuestion/submittedAnswer': answerText,
+        'currentQuestion/submitterId': myPlayerId,
+        'currentQuestion/status': 'judging', 
+    });
+    
+    console.log(`[Answer] 解答: "${answerText}" を提出しました。ホストの判定を待っています。`);
+
+  }, [gameId, gameState, myPlayerId]); 
+
+
+  // --- 解答の判定処理 (ホスト専用) ---
+  useEffect(() => {
+    if (!isHost || gameState?.currentQuestion?.status !== 'judging') return;
+
+    const gameId = gameState.id || initialGameId; 
+    if (!gameId) return;
+
+    const currentQ = gameState.currentQuestion;
+    const answererId = currentQ.submitterId; 
+    const submittedAnswer = currentQ.submittedAnswer;
+    const correctAnswer = currentQ.answer; 
+
+    const isCorrect = submittedAnswer.trim() === correctAnswer.trim(); 
+
+    const handleJudgment = async () => {
+        const gameRef = ref(db, `games/${gameId}`);
+
+        if (isCorrect) {
+            const newScore = (gameState.players[answererId]?.score || 0) + 1;
+            
+            await update(gameRef, {
+                [`players/${answererId}/score`]: newScore, 
+                'currentQuestion/status': 'answered_correct', 
+                'currentQuestion/buzzedPlayerId': null, 
+                'currentQuestion/answererId': null, 
+                'currentQuestion/submittedAnswer': null, 
+                'currentQuestion/submitterId': null, 
+            });
+            console.log(`[Host Judgment] 正解！プレイヤー ${answererId} のスコアが ${newScore} になりました。`);
+
+            setTimeout(() => {
                 setNextQuestion(gameId, gameState.currentQuestionIndex);
+            }, gameState.rules.nextQuestionDelay * 1000 || 2000); 
+
+        } else {
+            const penaltyType = gameState.rules.wrongAnswerPenalty;
+            let newScore = gameState.players[answererId]?.score || 0;
+            let updates = {
+                'currentQuestion/status': 'answered_wrong', 
+                'currentQuestion/answererId': null, 
+                'currentQuestion/submittedAnswer': null, 
+                'currentQuestion/submitterId': null, 
+            };
+
+            if (penaltyType === 'minus_one') {
+                newScore = Math.max(0, newScore - 1); 
+                updates[`players/${answererId}/score`] = newScore; 
+                console.log(`[Host Judgment] 誤答 (マイナス1点)。スコアが ${newScore} になりました。`);
+
+                setTimeout(() => {
+                    setNextQuestion(gameId, gameState.currentQuestionIndex);
+                }, gameState.rules.nextQuestionDelay * 1000 || 2000);
+
+            } else if (penaltyType === 'lockout') {
+                const lockedOutPlayers = currentQ.lockedOutPlayers || [];
+                updates['currentQuestion/lockedOutPlayers'] = [...lockedOutPlayers, answererId]; 
+                console.log(`[Host Judgment] 誤答 (ロックアウト)。プレイヤー ${answererId} はこの問題に解答できません。`);
+                
+                updates['currentQuestion/buzzedPlayerId'] = null;
             }
-        }, gameState.rules.nextQuestionDelay * 1000);
-
-    } else {
-        // 誤答の場合 (ペナルティ処理は複雑なので、一旦「次の問題に進む」をスキップする形で代替)
-        
-        // 誤答ペナルティのロジック
-        let newScore = gameState.players[myPlayerId]?.score || 0;
-        const penaltyType = gameState.rules.wrongAnswerPenalty;
-
-        if (penaltyType === 'minus_one') {
-            newScore = Math.max(0, newScore - 1); // 1点減点 (最低0点)
-            console.log(`[Answer] 誤答 (マイナス1点)。スコアが ${newScore} になりました。`);
-            await update(gameRef, {
-                [`players/${myPlayerId}/score`]: newScore, // スコア減点
-                'currentQuestion/status': 'answered_wrong', // 誤答としてマーク
-                'currentQuestion/answererId': null, // 解答権を剥奪
-                // buzzedPlayerIdはそのままにして、解答権を相手に移す...などのロジックが必要だが、一旦シンプルに
-            });
-
-        } else if (penaltyType === 'lockout') {
-            // ロックアウト (解答権喪失)
-            console.log("[Answer] 誤答 (ロックアウト)。この問題の解答権を失いました。");
-            await update(gameRef, {
-                'currentQuestion/status': 'answered_wrong',
-                'currentQuestion/answererId': null, // 解答権を剥奪
-                // 他のプレイヤーに解答権が移るロジックは、今後の課題
-            });
+            
+            await update(gameRef, updates);
         }
-        
-    }
+    };
+    
+    handleJudgment();
 
-  }, [gameId, gameState, myPlayerId, isHost, setNextQuestion]); // 依存配列に gameId, gameState, myPlayerId, isHost を含める
+  }, [isHost, gameState, setNextQuestion, initialGameId]);
+
+  // ゲームルームをFirebaseから完全に削除する関数 (ホスト専用)
+  const deleteGameRoom = useCallback(async () => {
+    if (!gameId || !isHost) {
+        console.warn("[Delete] 部屋の削除はホストのみ可能です。");
+        return;
+    }
+    
+    const gameRef = ref(db, `games/${gameId}`);
+    try {
+        await remove(gameRef);
+        console.log(`[Delete] ゲームルームID ${gameId} をFirebaseから削除しました。`);
+    } catch (error) {
+        console.error(`[Delete] ゲームルーム ${gameId} の削除に失敗しました:`, error);
+    }
+  }, [gameId, isHost]);
 
 
   // --- マッチング処理（db.jsの関数をラップ） (変更なし) ---
   
-  // ホスト：部屋作成
   const createHostGame = async (ruleSettings, hostPlayer) => {
-    // db.jsで定義したID衝突チェックを含む部屋作成関数を呼び出す
     const newGameId = await createNewGameWithRandom4DigitId(ruleSettings, hostPlayer);
     setGameId(newGameId);
     return newGameId;
   };
 
-  // クライアント：部屋参加
   const joinClientGame = async (targetGameId, clientPlayer) => {
     const gameRef = ref(db, `games/${targetGameId}`);
     
-    // 参加前に部屋が存在するか、ゲームが開始されていないかを確認
     const snapshot = await get(gameRef);
     if (!snapshot.exists()) {
       throw new Error('指定された部屋IDのゲームは存在しません。');
@@ -213,30 +379,24 @@ const useGame = (initialGameId, myPlayerId) => {
       throw new Error('このゲームは既に開始されています。');
     }
 
-
-    // db.jsで定義したクライアント情報追加関数を呼び出す
     await addClientToGame(targetGameId, clientPlayer);
     setGameId(targetGameId);
-    // 参加成功
   };
 
-  // --- リアルタイムデータ同期 ---
+  // --- リアルタイムデータ同期 (startGameに依存) ---
   useEffect(() => {
     if (!gameId) return;
 
     const gameRef = ref(db, `games/${gameId}`);
     
-    // リアルタイムリスナーを設定 (onValue)
     const unsubscribe = onValue(gameRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setGameState(data);
         
-        // --- 相手の名前を特定し、保存するロジック ---
         if (data.players) {
           const playersArray = Object.values(data.players);
           
-          // 自分ではないプレイヤーを探す
           const opponent = playersArray.find(
             (player) => player.id !== myPlayerId 
           );
@@ -245,24 +405,19 @@ const useGame = (initialGameId, myPlayerId) => {
             setOpponentName(opponent.name);
           }
 
-          // ホストの場合、プレイヤーが2人揃ったらゲーム開始ステータスに移行
-          // プレイヤー数が2人、ステータスが waiting、かつ自分がホストであれば開始
           if (data.status === 'waiting' && playersArray.length === 2 && data.players[myPlayerId]?.isHost) {
               console.log("[Host] プレイヤーが揃いました。ゲーム開始関数を呼び出します。");
-              // useCallback化した startGame を呼び出す
               startGame(gameId); 
           }
         }
       } else {
-        // ゲームセッションが削除された場合 (エラー処理)
         setGameState(null);
         setOpponentName('');
       }
     });
 
-    // クリーンアップ：コンポーネントがアンマウントされたら購読を停止する
     return () => unsubscribe();
-  }, [gameId, myPlayerId, startGame]); // 依存配列に startGame を追加
+  }, [gameId, myPlayerId, startGame]); 
 
 
   return { 
@@ -272,9 +427,10 @@ const useGame = (initialGameId, myPlayerId) => {
     myPlayerId,
     createHostGame, 
     joinClientGame,
-    isHost, // isHostもエクスポート
-    buzz, // 早押し関数を追加
-    submitAnswer, // 解答関数を追加
+    isHost,
+    buzz, 
+    submitAnswer, 
+    deleteGameRoom,
   };
 };
 

@@ -1,48 +1,96 @@
 // src/components/AnswerInput.js
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; 
 
-const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable }) => {
+const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, options }) => {
+  const [answer, setAnswer] = useState('');
   
-  // --- 早押しボタン処理 (キーボード入力対応) ---
+  // デバッグログの強化: isAnswerSelectable と options の両方を確認
+  useEffect(() => {
+    console.log("[DEBUG: AnswerInput] Current isAnswerSelectable:", isAnswerSelectable);
+    console.log("[DEBUG: AnswerInput] Current Options:", options);
+  }, [isAnswerSelectable, options]);
+  
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // 基本はキーボード入力 [cite: 29]
-      // エンターキーなど特定のキーを押してもいい [cite: 32]
       if (e.key === 'Enter') {
-        onBuzz(); // 親コンポーネント (Game.js) の早押し関数を呼び出す
+        if (isMyTurn) {
+            // isAnswerSelectable は now useGame.js will correctly set it based on actual options
+            if (!isAnswerSelectable && answer.trim()) { // If not selectable and input has text, submit
+                onSubmitAnswer(answer);
+                setAnswer('');
+            }
+            // If selectable, Enter should not submit the text input (handled by button click)
+        } else {
+            onBuzz(); 
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onBuzz]);
+  }, [onBuzz, isMyTurn, isAnswerSelectable, answer, onSubmitAnswer]);
 
 
-  // --- 解答入力/選択処理 ---
   if (!isMyTurn) {
     return (
-      <button onClick={onBuzz} disabled={isMyTurn}>
+      <button onClick={onBuzz}>
         早押し (Enterキー)
       </button>
     );
   }
+  
+  // ⭐ options は useGame.js で既に配列に変換されているはず
+  // ここでは options が有効な配列であることを確認するだけ
+  const optionList = Array.isArray(options) ? options.filter(opt => opt && typeof opt === 'string' && opt.trim() !== '') : [];
+
 
   return (
     <div>
-      {/* 選択形式の回答 [cite: 21, 30] */}
-      {isAnswerSelectable ? (
+      {/* ⭐ isAnswerSelectable が true かつ optionList に要素がある場合に選択肢を表示 */}
+      {isAnswerSelectable && optionList.length > 0 ? ( 
         <div>
           <p>選択肢を選んでください:</p>
-          {/* 選択肢をマップ表示するロジック（ここでは省略） */}
-          <button onClick={() => onSubmitAnswer('Answer A')}>選択肢A</button>
-          <button onClick={() => onSubmitAnswer('Answer B')}>選択肢B</button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {optionList.map((optText, index) => { // ⭐ optText を直接使用
+                return (
+                    <button 
+                        key={index} 
+                        onClick={() => {
+                            onSubmitAnswer(optText); // 選択肢のテキストを解答として送信
+                            setAnswer('');
+                        }}
+                        style={{ padding: '10px 15px', border: '1px solid #333', minWidth: '100px' }}
+                    >
+                        {optText} {/* ⭐ optText を表示 */}
+                    </button>
+                );
+            })}
+          </div>
         </div>
       ) : (
-        // 基本の記述式回答（ここでは簡単のためボタンで代替）
+        // オプションが存在しない場合、または isAnswerSelectable が false の場合の記述式
         <div>
-          <input type="text" placeholder="解答を入力..." />
-          <button onClick={() => onSubmitAnswer('User Answer')}>送信</button>
+          <input 
+            type="text" 
+            placeholder="解答を入力..." 
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+            }}
+          />
+          <button 
+            onClick={() => {
+              if (answer.trim()) {
+                onSubmitAnswer(answer);
+                setAnswer('');
+              }
+            }}
+            disabled={!answer.trim()}
+          >
+            解答を送信
+          </button>
         </div>
       )}
     </div>
