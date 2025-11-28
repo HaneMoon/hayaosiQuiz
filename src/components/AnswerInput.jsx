@@ -3,22 +3,25 @@
 import React, { useState, useEffect } from 'react'; 
 
 const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, options }) => {
-  // 入力フィールドの状態管理
   const [answer, setAnswer] = useState('');
-  // --- 早押しボタン処理 (キーボード入力対応) ---
+  
+  // デバッグログの強化: isAnswerSelectable と options の両方を確認
+  useEffect(() => {
+    console.log("[DEBUG: AnswerInput] Current isAnswerSelectable:", isAnswerSelectable);
+    console.log("[DEBUG: AnswerInput] Current Options:", options);
+  }, [isAnswerSelectable, options]);
+  
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // エンターキーで早押し
       if (e.key === 'Enter') {
-        // 解答権がある状態でのEnterキーは解答送信として扱う
         if (isMyTurn) {
-            // 選択式でなければ、解答を送信
-            if (!isAnswerSelectable && answer.trim()) {
+            // isAnswerSelectable は now useGame.js will correctly set it based on actual options
+            if (!isAnswerSelectable && answer.trim()) { // If not selectable and input has text, submit
                 onSubmitAnswer(answer);
-                setAnswer(''); // 送信後クリア
+                setAnswer('');
             }
+            // If selectable, Enter should not submit the text input (handled by button click)
         } else {
-            // 解答権がない状態でのEnterキーは早押しとして扱う
             onBuzz(); 
         }
       }
@@ -29,40 +32,44 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
   }, [onBuzz, isMyTurn, isAnswerSelectable, answer, onSubmitAnswer]);
 
 
-  // --- 解答入力/選択処理 ---
   if (!isMyTurn) {
-    // 解答権がない、または早押し済みでない場合
     return (
       <button onClick={onBuzz}>
         早押し (Enterキー)
       </button>
     );
   }
+  
+  // ⭐ options は useGame.js で既に配列に変換されているはず
+  // ここでは options が有効な配列であることを確認するだけ
+  const optionList = Array.isArray(options) ? options.filter(opt => opt && typeof opt === 'string' && opt.trim() !== '') : [];
 
-  // 解答権がある場合
+
   return (
     <div>
-      {/* 選択形式の回答 */}
-      {isAnswerSelectable && options ? (
+      {/* ⭐ isAnswerSelectable が true かつ optionList に要素がある場合に選択肢を表示 */}
+      {isAnswerSelectable && optionList.length > 0 ? ( 
         <div>
           <p>選択肢を選んでください:</p>
           <div style={{ display: 'flex', gap: '10px' }}>
-            {options.map((opt, index) => (
-                <button 
-                    key={index} 
-                    onClick={() => {
-                        onSubmitAnswer(opt.text); // 選択肢のテキストを解答として送信
-                        setAnswer('');
-                    }}
-                    style={{ padding: '10px 15px', border: '1px solid #333' }}
-                >
-                    {opt.text}
-                </button>
-            ))}
+            {optionList.map((optText, index) => { // ⭐ optText を直接使用
+                return (
+                    <button 
+                        key={index} 
+                        onClick={() => {
+                            onSubmitAnswer(optText); // 選択肢のテキストを解答として送信
+                            setAnswer('');
+                        }}
+                        style={{ padding: '10px 15px', border: '1px solid #333', minWidth: '100px' }}
+                    >
+                        {optText} {/* ⭐ optText を表示 */}
+                    </button>
+                );
+            })}
           </div>
         </div>
       ) : (
-        // 基本の記述式回答
+        // オプションが存在しない場合、または isAnswerSelectable が false の場合の記述式
         <div>
           <input 
             type="text" 
@@ -70,7 +77,6 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             onKeyDown={(e) => {
-                // Enterキーでの解答送信はuseEffectで処理される
                 if (e.key === 'Enter') e.preventDefault();
             }}
           />
@@ -78,7 +84,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
             onClick={() => {
               if (answer.trim()) {
                 onSubmitAnswer(answer);
-                setAnswer(''); // 送信後クリア
+                setAnswer('');
               }
             }}
             disabled={!answer.trim()}

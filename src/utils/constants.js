@@ -14,7 +14,7 @@ export const SUBJECTS = ['国語', '数学', '理科', '社会', '英語'];
 export const GRADES = ['1年', '2年', '3年']; // 義務教育(9年間)の範囲内
 
 
-// --- 問題データサンプル (追加) ---
+// --- 問題データサンプル (すべて選択式に修正) ---
 export const QUIZ_QUESTIONS = [
   {
     id: 1,
@@ -22,7 +22,8 @@ export const QUIZ_QUESTIONS = [
     answer: "木星",
     subject: "理科",
     grade: "3年",
-    isSelectable: false, // 記述式
+    isSelectable: true, // ⭐ 選択式に変更
+    options: ["土星", "火星", "木星", "天王星"], // ⭐ 選択肢を追加
   },
   {
     id: 2,
@@ -30,7 +31,8 @@ export const QUIZ_QUESTIONS = [
     answer: "納税の義務",
     subject: "社会",
     grade: "3年",
-    isSelectable: false,
+    isSelectable: true, // ⭐ 選択式に変更
+    options: ["納税の義務", "兵役の義務", "家族を扶養する義務", "環境を守る義務"], // ⭐ 選択肢を追加
   },
   {
     id: 3,
@@ -38,7 +40,7 @@ export const QUIZ_QUESTIONS = [
     answer: "doctor",
     subject: "英語",
     grade: "1年",
-    isSelectable: true, // 選択式
+    isSelectable: true, // 選択式のまま
     options: ["student", "teacher", "doctor", "firefighter"],
   },
   {
@@ -47,7 +49,7 @@ export const QUIZ_QUESTIONS = [
     answer: "x=2, 3",
     subject: "数学",
     grade: "3年",
-    isSelectable: true,
+    isSelectable: true, // 選択式のまま
     options: ["x=-2, -3", "x=1, 6", "x=2, 3", "x=-1, 5"],
   },
 ];
