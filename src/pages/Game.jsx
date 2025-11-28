@@ -6,7 +6,7 @@ import useGame from '../hooks/useGame';
 import QuestionDisplay from '../components/QuestionDisplay';
 import AnswerInput from '../components/AnswerInput';
 import GameStatus from '../components/GameStatus';
-import ResultDisplay from '../components/ResultDisplay';
+import ResultDisplay from '../components/ResultDisplay'; 
 
 // コンポーネントは JSX を含むため、拡張子を .jsx とします
 
@@ -22,9 +22,10 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   const { 
     gameState, 
     opponentName, 
-    buzz, // ⭐ 修正: buzz: onBuzz ではなく、buzz として取得する
+    buzz, 
     submitAnswer, 
     isHost, 
+    deleteGameRoom, 
   } = useGame(actualGameId, myPlayerId);
 
   // --- ゲームの状態表示に必要な変数 ---
@@ -55,23 +56,18 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       return;
     }
     
-    // 勝利が確定したら onGameEnd を呼び出す
+    // 勝利が確定しても、ここでは削除せず、リザルト画面のボタン押下を待つ
     if (gameStatus === 'finished' && winnerId) {
-      // 実際にはリザルト表示後、数秒待ってから終了処理を行う
-      // onGameEnd(); 
+      // 部屋の自動削除は行わない
     }
-  }, [gameState, gameStatus, winnerId, routeGameId, propGameId, actualGameId, navigate, onGameEnd]);
+  }, [gameState, gameStatus, winnerId, routeGameId, propGameId, actualGameId, navigate, onGameEnd]); 
 
 
   // --- 操作ロジック ---
 
   // 早押し処理
-  // ⭐ 修正: 以前ここで定義されていた const onBuzz = () => { ... } は削除
-  // useGameから取得した buzz 関数をそのまま onBuzz として使用する
-
   const onBuzz = () => {
     if (gameStatus === 'playing' && !isBuzzing) {
-      // 誰かが押していない、かつゲーム中であれば、useGameから取得した buzz 関数を呼び出す
       buzz();
     }
   };
@@ -85,10 +81,21 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   // 1. ゲーム終了時のリザルト画面
   if (gameStatus === 'finished' && winnerId) {
     const winner = players[winnerId];
+    
+    // ⭐ 修正: ホームへ戻る処理をラップし、ホストであれば削除処理を実行する
+    const handleReturnHome = () => {
+        if (isHost) {
+            deleteGameRoom(); // ホストの場合、遷移直前に削除を実行
+        }
+        onGameEnd(); // App.jsx の状態をリセット (gameId=nullなど)
+        navigate('/'); // Home.jsx へ遷移
+    };
+
     return (
       <ResultDisplay 
         winnerName={winner?.name || '不明なプレイヤー'} 
         myPlayerName={myPlayerName} 
+        onReturnHome={handleReturnHome} // コールバックを渡す
       />
     );
   }
@@ -139,7 +146,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       {/* 入力コンポーネント */}
       <AnswerInput 
         key={isMyTurn ? 'myturn' : 'notmyturn'} 
-        onBuzz={onBuzz} // ⭐ 修正した onBuzz 関数を渡す
+        onBuzz={onBuzz} 
         onSubmitAnswer={onSubmitAnswer}
         isMyTurn={isMyTurn}
         options={gameState?.currentQuestion?.options} 

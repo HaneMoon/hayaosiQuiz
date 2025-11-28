@@ -1,7 +1,7 @@
 // src/hooks/useGame.js
 
 import { useState, useEffect, useCallback } from 'react';
-import { onValue, ref, get, update } from 'firebase/database';
+import { onValue, ref, get, update, remove } from 'firebase/database';
 import { db, createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
 import { QUIZ_QUESTIONS } from '../utils/constants'; 
 
@@ -70,7 +70,7 @@ const useGame = (initialGameId, myPlayerId) => {
                 const questionId = q.questionId || q.id || `firebase_${Object.keys(combinedQuestions).length}`;
                 combinedQuestions[questionId] = {
                     ...q,
-                    // ⭐ options がオブジェクトなら配列に変換してから格納
+                    // options がオブジェクトなら配列に変換してから格納
                     options: q.options ? (Array.isArray(q.options) ? q.options : Object.values(q.options)) : null,
                 };
             });
@@ -89,7 +89,7 @@ const useGame = (initialGameId, myPlayerId) => {
 
     // 最終的な filteredQuestions を生成
     filteredQuestions = Object.values(combinedQuestions).map(q => {
-        // ⭐ isSelectable の判定を強化: options が配列で、かつ要素がある場合
+        // isSelectable の判定を強化: options が配列で、かつ要素がある場合
         const hasValidOptions = Array.isArray(q.options) && q.options.length > 0;
         return {
             ...q,
@@ -147,6 +147,14 @@ const useGame = (initialGameId, myPlayerId) => {
       
       const nextQuestionId = nextQuestion.questionId || nextQuestion.id || 'q_fallback_' + nextQuestionIndex; 
 
+      // ⭐ 修正: 選択肢が存在する場合、シャッフルする
+      let shuffledOptions = nextQuestion.options;
+      if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
+        // シャッフルは元の配列を破壊するため、コピーを作成してシャッフル
+        shuffledOptions = shuffleArray([...shuffledOptions]);
+        console.log(`[Shuffle] Question #${nextQuestionId} の選択肢をシャッフルしました。`);
+      }
+
       await update(gameRef, {
         currentQuestionIndex: nextQuestionIndex, 
         currentQuestion: {
@@ -154,7 +162,7 @@ const useGame = (initialGameId, myPlayerId) => {
           text: nextQuestion.text,
           answer: nextQuestion.answer,
           isSelectable: nextQuestion.isSelectable,
-          options: nextQuestion.options || null, 
+          options: shuffledOptions || null, // ⭐ シャッフルした選択肢を使用
           buzzedPlayerId: null, 
           answererId: null, 
           status: 'reading',
@@ -175,7 +183,7 @@ const useGame = (initialGameId, myPlayerId) => {
   }, [questionList, gameState]); 
 
 
-  // --- ゲーム開始処理 (ホスト専用) ---
+  // --- ゲーム開始処理 (ホスト専用)
   const startGame = useCallback(async (id) => {
     if (!gameState?.players?.[myPlayerId]?.isHost || !id || gameState.status !== 'waiting') return; 
     
@@ -199,6 +207,12 @@ const useGame = (initialGameId, myPlayerId) => {
     
     const initialQuestionId = initialQuestion.questionId || initialQuestion.id || 'q_fallback_0';
 
+    // ⭐ 修正: 最初の問題もシャッフルする
+    let shuffledOptions = initialQuestion.options;
+    if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
+        shuffledOptions = shuffleArray([...shuffledOptions]);
+        console.log(`[Shuffle] Question #${initialQuestionId} の選択肢をシャッフルしました。`);
+    }
 
     await update(gameRef, {
         ...initialPlayersUpdate, 
@@ -209,7 +223,7 @@ const useGame = (initialGameId, myPlayerId) => {
             text: initialQuestion.text,
             answer: initialQuestion.answer,
             isSelectable: initialQuestion.isSelectable,
-            options: initialQuestion.options || null, 
+            options: shuffledOptions || null, // ⭐ シャッフルした選択肢を使用
             buzzedPlayerId: null, 
             answererId: null, 
             status: 'reading', 
@@ -327,6 +341,22 @@ const useGame = (initialGameId, myPlayerId) => {
 
   }, [isHost, gameState, setNextQuestion, initialGameId]);
 
+  // ゲームルームをFirebaseから完全に削除する関数 (ホスト専用)
+  const deleteGameRoom = useCallback(async () => {
+    if (!gameId || !isHost) {
+        console.warn("[Delete] 部屋の削除はホストのみ可能です。");
+        return;
+    }
+    
+    const gameRef = ref(db, `games/${gameId}`);
+    try {
+        await remove(gameRef);
+        console.log(`[Delete] ゲームルームID ${gameId} をFirebaseから削除しました。`);
+    } catch (error) {
+        console.error(`[Delete] ゲームルーム ${gameId} の削除に失敗しました:`, error);
+    }
+  }, [gameId, isHost]);
+
 
   // --- マッチング処理（db.jsの関数をラップ） (変更なし) ---
   
@@ -400,6 +430,7 @@ const useGame = (initialGameId, myPlayerId) => {
     isHost,
     buzz, 
     submitAnswer, 
+    deleteGameRoom,
   };
 };
 

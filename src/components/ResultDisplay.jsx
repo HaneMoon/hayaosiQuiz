@@ -1,24 +1,40 @@
-// src/components/ResultDisplay.js
+// src/components/ResultDisplay.jsx
 
 import React from 'react';
 
-const ResultDisplay = ({ winnerName, myPlayerName }) => {
+/**
+ * ゲーム終了時のリザルト画面
+ * @param {object} props
+ * @param {string} props.winnerName - 勝者の名前
+ * @param {string} props.myPlayerName - 自分の名前
+ * @param {function} props.onReturnHome - ホームへ戻るためのコールバック
+ */
+const ResultDisplay = ({ winnerName, myPlayerName, onReturnHome }) => {
   const isWinner = winnerName === myPlayerName;
   
   return (
-    <div style={{ textAlign: 'center', padding: '40px' }}>
-      <h2>🏆 ゲーム終了！リザルト 🏆</h2>
-      {/* 勝敗はホストが決定し、DBから同期された winnerName に基づく */}
-      {isWinner ? (
-        <h1 style={{ color: 'green' }}>あなたの勝ちです！おめでとう！</h1>
-      ) : (
-        <h1 style={{ color: 'red' }}>残念！勝者は {winnerName} さんです。</h1>
-      )}
+    <div style={{ textAlign: 'center', padding: '50px', border: '3px solid #f00', borderRadius: '10px' }}>
+      <h2>🎉 ゲーム終了！ 🎉</h2>
       
-      {/* 再び範囲選択画面へ [cite: 16] */}
-      <button onClick={() => console.log('Go to Settings')}>
-        もう一度遊ぶ（範囲選択へ）
-      </button>
+      {isWinner ? (
+        <h1 style={{ color: 'gold', fontSize: '3em' }}>🏆 勝利! 🏆</h1>
+      ) : (
+        <h1 style={{ color: 'red', fontSize: '3em' }}>残念... 敗北</h1>
+      )}
+
+      <p style={{ fontSize: '1.5em', marginTop: '20px' }}>
+        勝者は **{winnerName}** でした。
+      </p>
+
+      <div style={{ marginTop: '40px' }}>
+        {/* ボタンを押したらホームへ戻る関数を実行 */}
+        <button 
+          onClick={onReturnHome} 
+          style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px' }}
+        >
+          トップ画面に戻る
+        </button>
+      </div>
     </div>
   );
 };
