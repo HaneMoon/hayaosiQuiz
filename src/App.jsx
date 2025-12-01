@@ -6,7 +6,8 @@ import Home from './pages/Home.jsx'; // 拡張子を明示
 import Settings from './pages/Settings.jsx'; // 拡張子を明示
 import Matchmaking from './pages/Matchmaking.jsx';
 import Game from './pages/Game.jsx';
-import QuestionAdmin from './pages/QuestionAdmin.jsx'; // ★ 問題管理ページのインポート
+import QuestionAdmin from './pages/QuestionAdmin.jsx'; // ★ 問題追加ページ
+import QuestionReview from './pages/QuestionReview.jsx'; // ★ 問題確認・削除ページを追加
 import './App.scss'; // ★ App.scss のインポートに変更
 
 // --- アプリケーションのメインコンポーネント ---
@@ -46,7 +47,9 @@ const App = () => {
           <Link to="/" className="btn btn-primary m-1">起動</Link>
           <Link to="/settings" className="btn btn-success m-1">設定</Link>
           <Link to="/matchmaking" className="btn btn-warning m-1">マッチング</Link>
-          <Link to="/admin" className="btn btn-danger m-1">問題管理</Link> {/* ★ 問題管理ページへのリンク */}
+          {/* 問題追加ボタンと問題確認・削除ボタンを横並びに追加 */}
+          <Link to="/admin" className="btn btn-danger m-1">問題追加</Link> 
+          <Link to="/review" className="btn btn-danger m-1">問題確認・削除</Link> {/* ★ 問題確認・削除ボタンを追加 */}
         </nav>
       </header>
       
@@ -73,10 +76,16 @@ const App = () => {
             } 
           />
           
-          {/* 問題管理ページ */}
+          {/* 問題管理ページ (追加) */}
           <Route 
             path="/admin" 
             element={<QuestionAdmin />} 
+          />
+
+          {/* 問題確認・削除ページ (追加) */}
+          <Route 
+            path="/review" 
+            element={<QuestionReview />} 
           />
 
           {/* 対戦画面（ルートパラメータあり） */}

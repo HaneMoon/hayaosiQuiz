@@ -6,8 +6,8 @@ import { SUBJECTS, GRADES } from '../utils/constants'; // 定数をインポー�
 const QuestionAdmin = () => {
   const [questionData, setQuestionData] = useState({
     subject: SUBJECTS[0] || '国語',
-    grade: GRADES[0] || '1年',
-    type: '知識', // '知識' (記述/計算), '選択式'
+    grade: GRADES[0] || '小1', // ⭐ 修正: 初期の学年をGRADSの最初の要素（小1）に設定
+    type: '選択式', // ⭐ 修正: デフォルトを '選択式' に変更
     text: '',
     answer: '',
     explanation: '',
@@ -134,9 +134,7 @@ const QuestionAdmin = () => {
 
   return (
     <div className="container mt-4">
-      <h2>📝 問題データ管理ページ</h2>
-      <p className="text-muted">新しいクイズ問題をFirebaseに登録します。</p>
-      
+      <div className="text-center">問題データ管理ページ</div> 
       <div className="card p-3 mb-4">
         <div className="row g-3">
           {/* 教科選択 */}
@@ -161,6 +159,7 @@ const QuestionAdmin = () => {
               value={questionData.grade} 
               onChange={handleChange}
             >
+              {/* GRADESには'小1'から'中3'までの全範囲が含まれています */}
               {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
@@ -189,7 +188,7 @@ const QuestionAdmin = () => {
             rows="3" 
             value={questionData.text} 
             onChange={handleChange} 
-            placeholder="ここに問題文を入力します..."
+            placeholder="ここに問題文を入力"
           ></textarea>
         </div>
         
@@ -233,6 +232,7 @@ const QuestionAdmin = () => {
               </div>
             ))}
             <p className="text-danger small">※左のラジオボタンで正解の選択肢を指定してください。</p>
+            <p className="text-danger small">選択肢は出題時にシャッフルされるので順番は関係ないです</p>
           </div>
         )}
 
@@ -245,7 +245,7 @@ const QuestionAdmin = () => {
             rows="2" 
             value={questionData.explanation} 
             onChange={handleChange} 
-            placeholder="正解の根拠や補足説明を入力します。"
+            placeholder="正解の根拠や補足説明を入力"
           ></textarea>
         </div>
 

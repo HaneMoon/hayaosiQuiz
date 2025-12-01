@@ -26,6 +26,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
     submitAnswer, 
     isHost, 
     deleteGameRoom, 
+    questionsLoaded, // ⭐ 追加: 問題のロード状態を取得
   } = useGame(actualGameId, myPlayerId);
 
   // --- ゲームの状態表示に必要な変数 ---
@@ -102,6 +103,21 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
 
   // 2. 対戦待ち画面
   if (gameStatus === 'waiting' || !gameState) {
+    // ⭐ 追加: プレイヤーが揃い、ホストで問題ロード中
+    if (gameState?.players && Object.keys(gameState.players).length === 2 && isHost && !questionsLoaded) {
+        return (
+            <div>
+                <h2>⏱️ 対戦相手を待っています...</h2>
+                <p>あなたの部屋ID: <strong>{actualGameId}</strong></p>
+                <p>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
+                <h3 style={{ color: 'orange', marginTop: '30px' }}>
+                    📦 問題データをロード中です...しばらくお待ちください。
+                </h3>
+            </div>
+        );
+    }
+
+    // ⭐ 既存の対戦相手待ちの表示
     return (
       <div>
         <h2>⏱️ 対戦相手を待っています...</h2>
