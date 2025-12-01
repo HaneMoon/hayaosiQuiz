@@ -6,8 +6,8 @@ import { SUBJECTS, GRADES } from '../utils/constants'; // 定数をインポー�
 const QuestionAdmin = () => {
   const [questionData, setQuestionData] = useState({
     subject: SUBJECTS[0] || '国語',
-    grade: GRADES[0] || '1年',
-    type: '知識', // '知識' (記述/計算), '選択式'
+    grade: GRADES[0] || '小1', // ⭐ 修正: 初期の学年をGRADSの最初の要素（小1）に設定
+    type: '選択式', // ⭐ 修正: デフォルトを '選択式' に変更
     text: '',
     answer: '',
     explanation: '',
@@ -161,6 +161,7 @@ const QuestionAdmin = () => {
               value={questionData.grade} 
               onChange={handleChange}
             >
+              {/* GRADESには'小1'から'中3'までの全範囲が含まれています */}
               {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
@@ -233,6 +234,7 @@ const QuestionAdmin = () => {
               </div>
             ))}
             <p className="text-danger small">※左のラジオボタンで正解の選択肢を指定してください。</p>
+            <p className="text-danger small">選択肢は出題時にシャッフルされるので順番は関係ないです</p>
           </div>
         )}
 

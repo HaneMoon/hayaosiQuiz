@@ -35,6 +35,8 @@ const useGame = (initialGameId, myPlayerId) => {
   const [opponentName, setOpponentName] = useState('');
   // 問題リストの状態を追加（ホストが一度だけ取得し、Stateに保存）
   const [questionList, setQuestionList] = useState(null); 
+  // ⭐ 追加: 問題リストのロード状態を追跡
+  const [questionsLoaded, setQuestionsLoaded] = useState(false);
   
   // 自分がホストかどうかを判定
   const isHost = gameState?.players?.[myPlayerId]?.isHost === true; 
@@ -43,53 +45,78 @@ const useGame = (initialGameId, myPlayerId) => {
 
   // Firebaseから問題を取得し、Stateに保存する関数 (ホスト専用)
   const fetchQuestionsForGame = useCallback(async (settings) => {
+    setQuestionsLoaded(false); // ロード開始
     const allQuestionsRef = ref(db, 'questions');
     const snapshot = await get(allQuestionsRef);
     
     let allFirebaseQuestions = {};
     if (snapshot.exists()) {
         allFirebaseQuestions = snapshot.val();
-        console.log("[DEBUG: Q Fetch] Loaded Firebase questions:", allFirebaseQuestions);
+        console.log(`[DEBUG: Q Fetch] Loaded Firebase questions. Subjects: ${Object.keys(allFirebaseQuestions).join(', ')}`);
     } else {
         console.warn("[Game] Firebaseに問題データが見つかりません。");
     }
 
     let filteredQuestions = [];
-    const subjectsToUse = settings?.range?.subjects || [];
-    console.log(`[DEBUG: Q Fetch] Settings Subjects: ${subjectsToUse.join(', ')}`);
+    const subjectsToUse = settings?.range?.subjects || Object.keys(subjectNodeMap); 
+    const totalQuestionsLimit = settings?.rules?.totalQuestions || 10; 
+    
+    console.log(`[DEBUG: Q Fetch] Settings Subjects: ${subjectsToUse.join(', ')}. Limit: ${totalQuestionsLimit}問`);
 
     // Firebaseからの問題と、ローカルのQUIZ_QUESTIONSを統合
     let combinedQuestions = {};
     
-    // Firebaseからの問題をcombinedQuestionsに追加
+    // --- 1. Firebaseからの問題をcombinedQuestionsに追加 ---
     for (const [subjectNode, subjectQuestions] of Object.entries(allFirebaseQuestions)) {
         const japaneseSubject = Object.keys(subjectNodeMap).find(key => subjectNodeMap[key] === subjectNode);
+        
         if (subjectsToUse.includes(japaneseSubject) || subjectsToUse.includes(subjectNode)) {
-            // Firebaseのoptionsがオブジェクト形式の場合に備えて変換
             Object.values(subjectQuestions).forEach(q => {
                 const questionId = q.questionId || q.id || `firebase_${Object.keys(combinedQuestions).length}`;
-                combinedQuestions[questionId] = {
-                    ...q,
-                    // options がオブジェクトなら配列に変換してから格納
-                    options: q.options ? (Array.isArray(q.options) ? q.options : Object.values(q.options)) : null,
-                };
+                if (!combinedQuestions[questionId]) {
+                    
+                    // ⭐ 修正: オブジェクト配列からテキストの文字列配列に変換する
+                    const rawOptions = q.options ? (Array.isArray(q.options) ? q.options : Object.values(q.options)) : [];
+                    // provided JSON format: options: [ {text: "...", isCorrect: bool}, ... ]
+                    const optionTexts = rawOptions.map(opt => opt.text); 
+
+                    combinedQuestions[questionId] = {
+                        ...q,
+                        // ⭐ 修正: optionsを文字列配列として格納
+                        options: optionTexts, 
+                        source: 'firebase', 
+                    };
+                }
             });
         }
     }
 
-    // ローカルのQUIZ_QUESTIONSから、設定に合うものをcombinedQuestionsに追加
+    // --- 2. ローカルのQUIZ_QUESTIONSから、設定に合うものをcombinedQuestionsに追加 ---
     QUIZ_QUESTIONS.forEach(q => {
         if (subjectsToUse.includes(q.subject)) {
             const questionId = q.id || `local_${Object.keys(combinedQuestions).length}`;
-            if (!combinedQuestions[questionId]) { // Firebaseと重複しないように
-                combinedQuestions[questionId] = q;
+            if (!combinedQuestions[questionId]) {
+                
+                // ローカルのQUIZ_QUESTIONSもoptionsが文字列配列であることを期待
+                let localOptionTexts = Array.isArray(q.options) ? q.options : null;
+                // ただし、ローカルのQUIZ_QUESTIONSは既に文字列配列として定義されていることが多い
+                // 念のため、ローカルが{text: ..., isCorrect: ...}形式だったら対応
+                if (localOptionTexts && localOptionTexts.length > 0 && typeof localOptionTexts[0] === 'object') {
+                   localOptionTexts = localOptionTexts.map(opt => opt.text);
+                }
+
+                combinedQuestions[questionId] = {
+                    ...q,
+                    options: localOptionTexts,
+                    source: 'local',
+                };
             }
         }
     });
 
-    // 最終的な filteredQuestions を生成
+    // --- 3. 最終的なリストの生成、シャッフル、切り詰め ---
     filteredQuestions = Object.values(combinedQuestions).map(q => {
-        // isSelectable の判定を強化: options が配列で、かつ要素がある場合
+        // isSelectableはoptionsが文字列配列として存在するかで判定
         const hasValidOptions = Array.isArray(q.options) && q.options.length > 0;
         return {
             ...q,
@@ -97,19 +124,22 @@ const useGame = (initialGameId, myPlayerId) => {
         };
     });
     
-    // フィルタリング結果が空の場合、常にQUIZ_QUESTIONSを代替として使用
     if (filteredQuestions.length === 0) {
-        console.warn("[Game] 設定された条件に合う問題が見つかりません。ローカルのQUIZ_QUESTIONSを使用します。");
+        console.warn("[Game] 設定された条件に合う問題がFirebase/ローカルで見つかりません。全てのローカルQUIZ_QUESTIONSを代替として使用します。");
         filteredQuestions = QUIZ_QUESTIONS.map(q => ({
             ...q,
-            isSelectable: Array.isArray(q.options) && q.options.length > 0, // ローカルでも判定
+            isSelectable: Array.isArray(q.options) && q.options.length > 0, 
+            source: 'local_fallback',
         }));
     }
     
     const shuffledQuestions = shuffleArray(filteredQuestions);
-    setQuestionList(shuffledQuestions);
-    console.log(`[Game] 合計 ${shuffledQuestions.length} 問の問題を取得しました。`);
-    return shuffledQuestions;
+    const finalQuestionList = shuffledQuestions.slice(0, totalQuestionsLimit);
+
+    setQuestionList(finalQuestionList);
+    setQuestionsLoaded(true); 
+    console.log(`[Game] 最終的な問題リストを作成しました。合計 ${finalQuestionList.length} 問 (最大 ${totalQuestionsLimit} 問)。`);
+    return finalQuestionList;
 
   }, []);
 
@@ -147,10 +177,9 @@ const useGame = (initialGameId, myPlayerId) => {
       
       const nextQuestionId = nextQuestion.questionId || nextQuestion.id || 'q_fallback_' + nextQuestionIndex; 
 
-      // ⭐ 修正: 選択肢が存在する場合、シャッフルする
+      // ⭐ optionsは既に文字列配列であることを前提にシャッフル
       let shuffledOptions = nextQuestion.options;
       if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
-        // シャッフルは元の配列を破壊するため、コピーを作成してシャッフル
         shuffledOptions = shuffleArray([...shuffledOptions]);
         console.log(`[Shuffle] Question #${nextQuestionId} の選択肢をシャッフルしました。`);
       }
@@ -162,14 +191,14 @@ const useGame = (initialGameId, myPlayerId) => {
           text: nextQuestion.text,
           answer: nextQuestion.answer,
           isSelectable: nextQuestion.isSelectable,
-          options: shuffledOptions || null, // ⭐ シャッフルした選択肢を使用
+          options: shuffledOptions || null, // ⭐ シャッフルした文字列配列を使用
           buzzedPlayerId: null, 
           answererId: null, 
           status: 'reading',
           lockedOutPlayers: [], 
         }
       });
-      console.log(`[Game] 次の問題 #${nextQuestionId} を設定しました。`);
+      console.log(`[Game] 次の問題 #${nextQuestionId} (${nextQuestion.source}) を設定しました。`);
     } else {
         console.log("[Game] 全ての問題が終了しました。リザルト画面に移行します。");
         const playerScores = Object.values(players).map(p => ({ id: p.id, score: p.score }));
@@ -185,16 +214,9 @@ const useGame = (initialGameId, myPlayerId) => {
 
   // --- ゲーム開始処理 (ホスト専用)
   const startGame = useCallback(async (id) => {
-    if (!gameState?.players?.[myPlayerId]?.isHost || !id || gameState.status !== 'waiting') return; 
+    if (!gameState?.players?.[myPlayerId]?.isHost || !id || gameState.status !== 'waiting' || !questionsLoaded || !questionList) return; 
     
-    let questions = questionList;
-    if (!questions) {
-        questions = await fetchQuestionsForGame(gameState.settings);
-        if (!questions || questions.length === 0) {
-            console.error("[Game] ゲームを開始できません。問題データがありません。");
-            return;
-        }
-    }
+    const questions = questionList; 
     
     const gameRef = ref(db, `games/${id}`);
     
@@ -207,7 +229,7 @@ const useGame = (initialGameId, myPlayerId) => {
     
     const initialQuestionId = initialQuestion.questionId || initialQuestion.id || 'q_fallback_0';
 
-    // ⭐ 修正: 最初の問題もシャッフルする
+    // ⭐ optionsは既に文字列配列であることを前提にシャッフル
     let shuffledOptions = initialQuestion.options;
     if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
         shuffledOptions = shuffleArray([...shuffledOptions]);
@@ -223,18 +245,18 @@ const useGame = (initialGameId, myPlayerId) => {
             text: initialQuestion.text,
             answer: initialQuestion.answer,
             isSelectable: initialQuestion.isSelectable,
-            options: shuffledOptions || null, // ⭐ シャッフルした選択肢を使用
+            options: shuffledOptions || null, // ⭐ シャッフルした文字列配列を使用
             buzzedPlayerId: null, 
             answererId: null, 
             status: 'reading', 
             lockedOutPlayers: [], 
         },
     });
-    console.log(`[Game] ゲームID ${id} のステータスを 'playing' に更新し、最初の問題を設定しました。`);
-  }, [gameState, myPlayerId, questionList, fetchQuestionsForGame]); 
+    console.log(`[Game] ゲームID ${id} のステータスを 'playing' に更新し、最初の問題 (${initialQuestion.source}) を設定しました。`);
+  }, [gameState, myPlayerId, questionList, questionsLoaded]); 
 
 
-  // --- 早押し処理 ---
+  // --- 早押し処理 (変更なし) ---
   const buzz = useCallback(async () => {
     if (!gameId || gameState?.status !== 'playing') return;
     
@@ -284,6 +306,7 @@ const useGame = (initialGameId, myPlayerId) => {
     const submittedAnswer = currentQ.submittedAnswer;
     const correctAnswer = currentQ.answer; 
 
+    // ⭐ 判定ロジックは、submittedAnswerとcorrectAnswer (正解のテキスト) の一致を確認するため、変更なしでOK
     const isCorrect = submittedAnswer.trim() === correctAnswer.trim(); 
 
     const handleJudgment = async () => {
@@ -383,7 +406,8 @@ const useGame = (initialGameId, myPlayerId) => {
     setGameId(targetGameId);
   };
 
-  // --- リアルタイムデータ同期 (startGameに依存) ---
+  // --- リアルタイムデータ同期 ---
+  // ⭐ 修正: プレイヤーが揃ったら、問題ロードを開始するロジックに変更
   useEffect(() => {
     if (!gameId) return;
 
@@ -392,7 +416,7 @@ const useGame = (initialGameId, myPlayerId) => {
     const unsubscribe = onValue(gameRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setGameState(data);
+        setGameState({...data, id: snapshot.key}); 
         
         if (data.players) {
           const playersArray = Object.values(data.players);
@@ -405,9 +429,12 @@ const useGame = (initialGameId, myPlayerId) => {
             setOpponentName(opponent.name);
           }
 
+          // ホストの場合、プレイヤーが揃い、まだ問題リストをロードしていないなら、ロードを開始
           if (data.status === 'waiting' && playersArray.length === 2 && data.players[myPlayerId]?.isHost) {
-              console.log("[Host] プレイヤーが揃いました。ゲーム開始関数を呼び出します。");
-              startGame(gameId); 
+              if (!questionsLoaded && !questionList) {
+                  console.log("[Host] プレイヤーが揃いました。問題リストのロードを開始します。");
+                  fetchQuestionsForGame(data.settings); 
+              }
           }
         }
       } else {
@@ -417,7 +444,16 @@ const useGame = (initialGameId, myPlayerId) => {
     });
 
     return () => unsubscribe();
-  }, [gameId, myPlayerId, startGame]); 
+  }, [gameId, myPlayerId, fetchQuestionsForGame, questionList, questionsLoaded]); 
+  
+  // ⭐ 追加: 問題ロード完了をトリガーとしてゲームを開始する
+  useEffect(() => {
+      // ホストであり、ロードが完了し、問題リストがあり、ステータスが'waiting'ならゲーム開始
+      if (isHost && questionsLoaded && questionList && gameState?.status === 'waiting') {
+          console.log("[Host] 問題リストのロードが完了しました。ゲームを開始します。");
+          startGame(gameId);
+      }
+  }, [isHost, questionsLoaded, questionList, gameState, gameId, startGame]);
 
 
   return { 
@@ -431,6 +467,7 @@ const useGame = (initialGameId, myPlayerId) => {
     buzz, 
     submitAnswer, 
     deleteGameRoom,
+    questionsLoaded, // ⭐ 追加: UIでロード状態を表示可能にする
   };
 };
 
