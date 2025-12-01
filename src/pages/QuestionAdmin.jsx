@@ -134,9 +134,7 @@ const QuestionAdmin = () => {
 
   return (
     <div className="container mt-4">
-      <h2>📝 問題データ管理ページ</h2>
-      <p className="text-muted">新しいクイズ問題をFirebaseに登録します。</p>
-      
+      <div className="text-center">問題データ管理ページ</div> 
       <div className="card p-3 mb-4">
         <div className="row g-3">
           {/* 教科選択 */}
@@ -190,7 +188,7 @@ const QuestionAdmin = () => {
             rows="3" 
             value={questionData.text} 
             onChange={handleChange} 
-            placeholder="ここに問題文を入力します..."
+            placeholder="ここに問題文を入力"
           ></textarea>
         </div>
         
@@ -247,7 +245,7 @@ const QuestionAdmin = () => {
             rows="2" 
             value={questionData.explanation} 
             onChange={handleChange} 
-            placeholder="正解の根拠や補足説明を入力します。"
+            placeholder="正解の根拠や補足説明を入力"
           ></textarea>
         </div>
 
