@@ -1,11 +1,9 @@
-// src/pages/QuestionReview.jsx (修正後の全文)
+// src/pages/QuestionReview.jsx
 
-import React, { useState, useEffect, useMemo } from 'react';
-// dbインスタンスをdb.jsからインポートして使用
+import React, { useState, useEffect, useMemo, useRef } from 'react'; // 💡 useRefを追加
 import { db } from '../firebase/db'; 
 import { ref, onValue, remove, update } from 'firebase/database'; 
 
-// Firebaseノード名（例: japanese）と日本語名（例: 国語）のマッピング
 const subjectNodeMap = {
     '国語': 'japanese',
     '数学': 'mathematics',
@@ -14,18 +12,25 @@ const subjectNodeMap = {
     '英語': 'english',
 };
 
-// ノード名から日本語名への逆引きマップ
 const japaneseSubjectMap = Object.entries(subjectNodeMap).reduce((acc, [key, value]) => {
     acc[value] = key;
     return acc;
 }, {});
 
-/**
- * 💡 編集フォームのコンポーネント (QuestionReviewの外部に移動)
- * 親コンポーネントから必要なデータとハンドラを props として受け取る
- */
-const EditForm = ({ editingQuestion, editFormData, setEditFormData, handleUpdate, setEditingQuestion }) => (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+const EditForm = ({ 
+    editingQuestion, 
+    editFormData, 
+    setEditFormData, 
+    handleUpdate, 
+    setEditingQuestion, 
+    editFormRef // 💡 refを受け取る
+}) => (
+    // 💡 refを設定し、tabIndex="-1"でフォーカス可能にする
+    <div 
+        ref={editFormRef} 
+        tabIndex="-1" 
+        className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 outline-none" 
+    >
         <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg">
             <h3 className="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">
                 問題編集 (ID: {editingQuestion.questionId})
@@ -82,10 +87,6 @@ const EditForm = ({ editingQuestion, editFormData, setEditFormData, handleUpdate
     </div>
 );
 
-
-/**
- * Firebase Realtime Databaseに登録された問題を確認・削除・編集するページコンポーネント
- */
 const QuestionReview = () => {
     const [questions, setQuestions] = useState({});
     const [loading, setLoading] = useState(true);
@@ -94,7 +95,8 @@ const QuestionReview = () => {
     const [editingQuestion, setEditingQuestion] = useState(null); 
     const [editFormData, setEditFormData] = useState({}); 
 
-    // 問題データのリアルタイム取得 (変更なし)
+    const editFormRef = useRef(null); 
+
     useEffect(() => {
         const questionsRef = ref(db, 'questions');
 
@@ -115,7 +117,6 @@ const QuestionReview = () => {
         return () => unsubscribe();
     }, []);
 
-    // 総問題数の計算 (変更なし)
     const totalQuestionCount = useMemo(() => {
         if (!questions) return 0;
         let count = 0;
@@ -128,7 +129,6 @@ const QuestionReview = () => {
         return count;
     }, [questions]); 
 
-    // 選択された教科に基づいて表示する教科ノードのリストを計算 (変更なし)
     const filteredSubjectNodes = useMemo(() => {
         const nodes = Object.keys(questions);
         
@@ -139,7 +139,6 @@ const QuestionReview = () => {
         return nodes.filter(node => node === selectedSubjectNode);
     }, [questions, selectedSubjectNode]);
 
-    // 編集開始処理 (変更なし)
     const handleEdit = (subjectNode, questionId, questionData) => {
         const optionsString = questionData.options && Array.isArray(questionData.options)
             ? questionData.options.map(opt => opt.text || opt).join(' / ')
@@ -149,7 +148,12 @@ const QuestionReview = () => {
         setEditFormData({
             text: questionData.text || '',
             answer: questionData.answer || '',
-            optionsString: optionsString, // 文字列として保持
+            optionsString: optionsString,
+        });
+        requestAnimationFrame(() => {
+            if (editFormRef.current) {
+                editFormRef.current.focus();
+            }
         });
     };
 
@@ -172,7 +176,6 @@ const QuestionReview = () => {
                                 .map(text => ({ text: text }));
             updatedData.options = optionsArray;
         } else {
-            // 選択肢が空の場合、Firebaseからoptionsフィールドを削除する代わりに空配列で更新
             updatedData.options = [];
         }
 
@@ -208,10 +211,6 @@ const QuestionReview = () => {
         }
     };
     
-    // ----------------------------------------------------
-    // レンダリング開始
-    // ----------------------------------------------------
-
     if (loading) {
         return (
             <div className="text-center p-5">
@@ -231,16 +230,7 @@ const QuestionReview = () => {
 
     return (
         <div className="container mt-3"> 
-            <div className="text-center">問題確認・削除ページ</div>
-
-            
-            {/* 総問題数の表示 */}
-            {/* <div className="text-center mb-6 p-3 bg-indigo-100 rounded-lg shadow-inner">
-                <p className="text-lg font-semibold text-indigo-800">
-                    全教科の総問題数: <span className="text-2xl font-extrabold">{totalQuestionCount}</span> 問
-                </p>
-            </div> */}
-            
+            <div className="text-center">問題確認・削除ページ</div >            
             {/* 教科選択ドロップダウンの追加 */}
             <div className="mb-8 p-4 border border-gray-300 rounded-lg bg-white shadow-lg">
                 <select
@@ -317,7 +307,6 @@ const QuestionReview = () => {
                                                         </div>
                                                     </div>
                                                     <div className="d-flex space-x-2">
-                                                        {/* 編集ボタンの追加 */}
                                                         <button
                                                             className="btn btn-primary btn-sm shadow-md transition duration-150 hover:scale-105"
                                                             onClick={() => handleEdit(subjectNode, questionId, q)}
@@ -341,7 +330,7 @@ const QuestionReview = () => {
                 </div>
             )}
             
-            {/* 💡 編集中の問題がある場合のみフォームを表示 */}
+            {/* 編集中の問題がある場合のみフォームを表示 */}
             {editingQuestion && (
                 <EditForm 
                     editingQuestion={editingQuestion}
@@ -349,6 +338,7 @@ const QuestionReview = () => {
                     setEditFormData={setEditFormData}
                     handleUpdate={handleUpdate}
                     setEditingQuestion={setEditingQuestion}
+                    editFormRef={editFormRef} // 💡 refを渡す
                 />
             )}
 
