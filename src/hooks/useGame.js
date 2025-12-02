@@ -340,32 +340,53 @@ const useGame = (initialGameId, myPlayerId) => {
 
         } else {
             const penaltyType = gameState.rules.wrongAnswerPenalty;
+            const playerCount = Object.keys(gameState.players).length; // ⭐ プレイヤーの総数を取得
             let newScore = gameState.players[answererId]?.score || 0;
             let updates = {
-                'currentQuestion/status': 'answered_wrong', 
+                'currentQuestion/status': 'answered_wrong', // 初期値としてセット
                 'currentQuestion/answererId': null, 
                 'currentQuestion/submittedAnswer': null, 
                 'currentQuestion/submitterId': null, 
             };
+            
+            let shouldAdvanceToNextQuestion = false; // ⭐ 次の問題へ進むべきか判定するフラグ
 
             if (penaltyType === 'minus_one') {
                 newScore = Math.max(0, newScore - 1); 
                 updates[`players/${answererId}/score`] = newScore; 
                 console.log(`[Host Judgment] 誤答 (マイナス1点)。スコアが ${newScore} になりました。`);
 
-                setTimeout(() => {
-                    setNextQuestion(gameId, gameState.currentQuestionIndex);
-                }, gameState.rules.nextQuestionDelay * 1000 || 2000);
+                shouldAdvanceToNextQuestion = true; // ⭐ 'minus_one' の場合は即座に次の問題へ
 
             } else if (penaltyType === 'lockout') {
                 const lockedOutPlayers = currentQ.lockedOutPlayers || [];
+                // ロックアウトプレイヤーリストに追加
                 updates['currentQuestion/lockedOutPlayers'] = [...lockedOutPlayers, answererId]; 
-                console.log(`[Host Judgment] 誤答 (ロックアウト)。プレイヤー ${answererId} はこの問題に解答できません。`);
                 
-                updates['currentQuestion/buzzedPlayerId'] = null;
+                // ⭐ status を一時的に 'judging' のままにするか、または次の早押しを待つために 'reading' に戻す
+                updates['currentQuestion/status'] = 'reading'; 
+                updates['currentQuestion/buzzedPlayerId'] = null; // 早押しをリセット
+
+                const nextLockedOutCount = lockedOutPlayers.length + 1;
+                
+                // ⭐ プレイヤー全員がロックアウトされたかチェック
+                if (nextLockedOutCount >= playerCount) {
+                    console.log(`[Host Judgment] 誤答 (ロックアウト)。全プレイヤー (${playerCount}人) がロックアウトされました。次の問題へ移行します。`);
+                    updates['currentQuestion/status'] = 'answered_wrong'; // 終了ステータスに変更
+                    shouldAdvanceToNextQuestion = true; // ⭐ 全員ロックアウトの場合は次の問題へ
+                } else {
+                    console.log(`[Host Judgment] 誤答 (ロックアウト)。プレイヤー ${answererId} はこの問題に解答できません。`);
+                }
             }
             
             await update(gameRef, updates);
+            
+            // ⭐ 次の問題へ進むべき場合にタイマーを設定
+            if (shouldAdvanceToNextQuestion) {
+                setTimeout(() => {
+                    setNextQuestion(gameId, gameState.currentQuestionIndex);
+                }, gameState.rules.nextQuestionDelay * 1000 || 2000);
+            }
         }
     };
     
