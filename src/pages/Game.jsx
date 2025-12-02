@@ -154,7 +154,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   // 3. プレイ中のメイン画面
   return (
     <div>
-      <h2>⚔️ クイズバトル中！ (ID: {actualGameId})</h2>
+      <h2>バトル中 (ID: {actualGameId})</h2>
       <GameStatus 
         players={players} 
         myPlayerId={myPlayerId} 
@@ -173,7 +173,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       {/* 状況メッセージ */}
       {buzzedPlayerId && buzzedPlayerId !== myPlayerId && qStatus === 'answering' && (
         <p style={{ color: 'orange' }}>
-          {players[buzzedPlayerId]?.name || '誰か'} が早押ししました！解答権があります。
+          {players[buzzedPlayerId]?.name || '誰か'} が先に回答ボタンを押しました。{players[buzzedPlayerId]?.name || '誰か'}に解答権があります。
         </p>
       )}
       {qStatus === 'judging' && <p style={{ color: 'blue', fontWeight: 'bold' }}>ホストが解答を判定中です...</p>}

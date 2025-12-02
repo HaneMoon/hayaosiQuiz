@@ -10,6 +10,23 @@ import Game from './pages/Game.jsx';
 import QuestionAdmin from './pages/QuestionAdmin.jsx';
 import QuestionReview from './pages/QuestionReview.jsx'; 
 import './App.scss';
+// ⭐ constants からデフォルト設定に関連する値をインポートしていることを前提とします。
+// import { DEFAULT_RULES, SUBJECTS, GRADES } from './utils/constants'; 
+
+// ⭐ ダミーのデフォルト設定 (constants.js がないため)
+const DEFAULT_SETTINGS = {
+  rules: {
+    winPoints: 5,
+    wrongAnswerPenalty: 'lockout',
+    nextQuestionDelay: 2,
+    totalQuestions: 10,
+  },
+  range: {
+    subjects: ['国語', '数学', '理科', '社会', '英語'],
+    grades: [1, 2, 3],
+  }
+};
+
 
 // --- アプリケーションのメインコンポーネント ---
 const App = () => {
@@ -24,7 +41,6 @@ const App = () => {
   const handleRulesConfirmed = (newSettings) => {
     setSettings(newSettings);
     console.log("ルール設定が保存されました:", newSettings);
-    // 設定完了後、Matchmaking画面へ自動遷移させるためのロジックをSettingsコンポーネント側で実装します。
   };
 
   // Matchmaking.js で部屋が作成/参加されたときに呼び出される関数
@@ -90,7 +106,8 @@ const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handle
             element={
               <Matchmaking 
                 myPlayerId={myPlayerId} // myPlayerId を渡す
-                settings={settings} // 設定を渡す
+                // ⭐ settings が null の場合、デフォルト設定を使用
+                settings={settings || DEFAULT_SETTINGS} 
                 onGameReady={handleGameReady}
               />
             } 

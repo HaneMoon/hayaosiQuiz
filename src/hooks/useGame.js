@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { onValue, ref, get, update, remove } from 'firebase/database';
+// ⭐ db.js からインポートする関数を更新
 import { db, createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
 import { QUIZ_QUESTIONS } from '../utils/constants'; 
 
@@ -31,7 +32,15 @@ const subjectNodeMap = {
  */
 const useGame = (initialGameId, myPlayerId) => {
   const [gameId, setGameId] = useState(initialGameId);
-  const [gameState, setGameState] = useState(null);
+  // ⭐ null ではなく、初期オブジェクトを使用
+  const [gameState, setGameState] = useState({
+      id: initialGameId,
+      players: {},
+      status: 'waiting',
+      rules: null,
+      currentQuestion: null,
+      currentQuestionIndex: -1,
+  });
   const [opponentName, setOpponentName] = useState('');
   // 問題リストの状態を追加（ホストが一度だけ取得し、Stateに保存）
   const [questionList, setQuestionList] = useState(null); 
@@ -383,11 +392,12 @@ const useGame = (initialGameId, myPlayerId) => {
 
   // --- マッチング処理（db.jsの関数をラップ） (変更なし) ---
   
-  const createHostGame = async (ruleSettings, hostPlayer) => {
-    const newGameId = await createNewGameWithRandom4DigitId(ruleSettings, hostPlayer);
+  // ⭐ createHostGame の定義を更新: isOpenMatch を受け取るようにする
+  const createHostGame = useCallback(async (ruleSettings, hostPlayer, isOpenMatch = false) => {
+    const newGameId = await createNewGameWithRandom4DigitId(ruleSettings, hostPlayer, isOpenMatch);
     setGameId(newGameId);
     return newGameId;
-  };
+  }, []);
 
   const joinClientGame = async (targetGameId, clientPlayer) => {
     const gameRef = ref(db, `games/${targetGameId}`);
@@ -427,6 +437,8 @@ const useGame = (initialGameId, myPlayerId) => {
 
           if (opponent) {
             setOpponentName(opponent.name);
+          } else {
+            setOpponentName(''); // 相手が退出した場合に備えてリセット
           }
 
           // ホストの場合、プレイヤーが揃い、まだ問題リストをロードしていないなら、ロードを開始
@@ -467,7 +479,7 @@ const useGame = (initialGameId, myPlayerId) => {
     buzz, 
     submitAnswer, 
     deleteGameRoom,
-    questionsLoaded, // ⭐ 追加: UIでロード状態を表示可能にする
+    questionsLoaded, 
   };
 };
 
