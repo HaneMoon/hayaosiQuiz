@@ -75,16 +75,16 @@ const addClientToGame = async (gameId, clientPlayer) => {
 const findOrCreateOpenGame = async (ruleSettings, clientPlayer) => {
   const gamesRef = ref(db, 'games');
   
-  // 1. 空いているオープンマッチの部屋を検索 (status='waiting' かつ players数が1人)
-  // ⭐ クエリ: status が 'waiting' のもの
+  // 1. 空いているオープンマッチの部屋を検索
+  // ⭐ クエリ: status が 'waiting' のもの (Firebase Consoleで .indexOn: "status" が必要)
   const openGamesQuery = query(
     gamesRef,
     orderByChild('status'),
     equalTo('waiting'),
-    limitToFirst(10) // 効率化のため、最初の10件だけ取得
+    limitToFirst(10) // 最初の10件の waiting 部屋を検索
   );
 
-  console.log("空いているオープンマッチの部屋を検索中...");
+  console.log("空いているオープンマッチの部屋を検索中 (条件: status='waiting')...");
   
   const snapshot = await get(openGamesQuery);
   let availableGameId = null;
@@ -92,11 +92,12 @@ const findOrCreateOpenGame = async (ruleSettings, clientPlayer) => {
   if (snapshot.exists()) {
     const games = snapshot.val();
     
-    // 取得したゲームの中から、'waiting' かつ 'isOpenMatch' が true で、プレイヤー数が1人の部屋を探す
+    // 取得したゲームの中から、'waiting' かつ 'isOpenMatch' が true で、プレイヤー数が1人の部屋をクライアント側で探す
     for (const gameId in games) {
       const game = games[gameId];
       const playerCount = Object.keys(game.players || {}).length;
       
+      // ⭐ 修正: 確実に isOpenMatch と playerCount をチェック
       if (game.isOpenMatch === true && playerCount === 1) {
         availableGameId = gameId;
         console.log(`[Success] 空いているオープン部屋を発見: ${availableGameId}`);

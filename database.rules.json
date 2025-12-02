@@ -1,7 +1,7 @@
 {
   "rules": {
     "games": {
-      ".indexOn": "status", 
+      ".indexOn": ["status", "isOpenMatch"], 
       "$gameId": {
       }
     },

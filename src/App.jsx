@@ -1,19 +1,20 @@
 // src/App.jsx
 
-import React, { useState } from 'react';
-// ⭐ 修正: useLocation をインポート
+import React, { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import Home from './pages/Home.jsx'; 
-import Settings from './pages/Settings.jsx'; 
-import Matchmaking from './pages/Matchmaking.jsx';
-import Game from './pages/Game.jsx';
-import QuestionAdmin from './pages/QuestionAdmin.jsx';
-import QuestionReview from './pages/QuestionReview.jsx'; 
-import './App.scss';
-// ⭐ constants からデフォルト設定に関連する値をインポートしていることを前提とします。
-// import { DEFAULT_RULES, SUBJECTS, GRADES } from './utils/constants'; 
 
-// ⭐ ダミーのデフォルト設定 (constants.js がないため)
+// ページコンポーネントを動的インポートに置き換える (Code Splitting) ⭐
+const Home = lazy(() => import('./pages/Home.jsx')); 
+const Settings = lazy(() => import('./pages/Settings.jsx')); 
+const Matchmaking = lazy(() => import('./pages/Matchmaking.jsx'));
+const Game = lazy(() => import('./pages/Game.jsx'));
+const QuestionAdmin = lazy(() => import('./pages/QuestionAdmin.jsx'));
+const QuestionReview = lazy(() => import('./pages/QuestionReview.jsx')); 
+// ⭐ 新しいコンポーネントをインポート
+const PrivateMatchOptions = lazy(() => import('./pages/PrivateMatchOption.jsx')); 
+
+import './App.scss';
+// ... (DEFAULT_SETTINGS は変更なし)
 const DEFAULT_SETTINGS = {
   rules: {
     winPoints: 5,
@@ -52,11 +53,10 @@ const App = () => {
   const handleGameEnd = () => {
     setGameId(null);
     setSettings(null);
-    // 起動画面や設定画面へ戻る処理
+    console.log("ゲーム終了: グローバルなゲームIDをリセットしました。");
   };
 
   return (
-    // ⭐ Routerの外側では useLocation を使えないため、AppContent コンポーネントにロジックを分離します。
     <Router>
       <AppContent 
         settings={settings}
@@ -73,19 +73,16 @@ const App = () => {
 // ⭐ useLocation を使用するためのラッパーコンポーネント
 const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handleGameReady, handleGameEnd }) => {
   const location = useLocation();
-  // 現在のパスが /game または /game/xxx で始まっているかチェック
   const isGameRoute = location.pathname.startsWith('/game');
 
   return (
     <>
-      {/* ⭐ isGameRoute が false の場合のみヘッダーを表示 */}
       {!isGameRoute && (
         <header>
           <h1>早押しクイズバトル F班</h1>
             <nav className="nav justify-content-center">
-            <Link to="/" className="btn btn-primary m-1">起動</Link>
-            <Link to="/settings" className="btn btn-success m-1">設定</Link>
-            <Link to="/matchmaking" className="btn btn-warning m-1">マッチング</Link>
+            <Link to="/" className="btn btn-primary m-1">ホーム</Link>
+            <Link to="/settings" className="btn btn-success m-1">問題設定</Link>
             <Link to="/admin" className="btn btn-danger m-1">問題追加</Link> 
             <Link to="/review" className="btn btn-danger m-1">問題確認・削除</Link> 
           </nav>
@@ -93,61 +90,64 @@ const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handle
       )}
       
       <main className="content container"> 
-        <Routes>
-          <Route path="/" element={<Home />} />
+        <Suspense fallback={<div>ロード中...</div>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
 
-          <Route 
-            path="/settings" 
-            element={<Settings onRulesConfirmed={handleRulesConfirmed} />} 
-          />
-          
-          <Route 
-            path="/matchmaking" 
-            element={
-              <Matchmaking 
-                myPlayerId={myPlayerId} // myPlayerId を渡す
-                // ⭐ settings が null の場合、デフォルト設定を使用
-                settings={settings || DEFAULT_SETTINGS} 
-                onGameReady={handleGameReady}
-              />
-            } 
-          />
+            {/* ⭐ 新しい選択画面のルートを追加 */}
+            <Route path="/private-options" element={<PrivateMatchOptions />} />
 
-          <Route 
-            path="/admin" 
-            element={<QuestionAdmin />} 
-          />
-
-          <Route 
-            path="/review" 
-            element={<QuestionReview />} 
-          />
-          
-          <Route 
-            path="/game/:gameId" 
-            element={
-              <Game 
-                myPlayerId={myPlayerId} 
-                onGameEnd={handleGameEnd}
-              />
-            } 
-          />
-          
-          {/* ルートパラメータがない場合でも、現在接続中のゲームIDを使ってGame画面へ遷移できるようにする */}
-          {gameId && (
             <Route 
-              path="/game" 
+              path="/settings" 
+              element={<Settings onRulesConfirmed={handleRulesConfirmed} />} 
+            />
+            
+            <Route 
+              path="/matchmaking" 
+              element={
+                <Matchmaking 
+                  myPlayerId={myPlayerId} 
+                  settings={settings || DEFAULT_SETTINGS} 
+                  onGameReady={handleGameReady}
+                />
+              } 
+            />
+
+            <Route 
+              path="/admin" 
+              element={<QuestionAdmin />} 
+            />
+
+            <Route 
+              path="/review" 
+              element={<QuestionReview />} 
+            />
+            
+            <Route 
+              path="/game/:gameId" 
               element={
                 <Game 
                   myPlayerId={myPlayerId} 
-                  propGameId={gameId} // 状態からIDを渡す (propGameIdとして)
                   onGameEnd={handleGameEnd}
                 />
               } 
             />
-          )}
+            
+            {gameId && (
+              <Route 
+                path="/game" 
+                element={
+                  <Game 
+                    myPlayerId={myPlayerId} 
+                    propGameId={gameId} 
+                    onGameEnd={handleGameEnd}
+                  />
+                } 
+              />
+            )}
 
-        </Routes>
+          </Routes>
+        </Suspense>
       </main>
     </>
   );

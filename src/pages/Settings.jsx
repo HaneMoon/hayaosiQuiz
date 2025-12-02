@@ -1,14 +1,13 @@
-// src/pages/Settings.js
+// src/pages/Settings.jsx
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // 画面遷移用（仮）
+import { useNavigate } from 'react-router-dom'; 
 import { DEFAULT_RULES, SUBJECTS, GRADES } from '../utils/constants';
 
 const Settings = ({ onRulesConfirmed }) => {
   const [rules, setRules] = useState(DEFAULT_RULES);
-  // ⭐ setSelectedGrades を削除
   const [selectedSubjects, setSelectedSubjects] = useState(SUBJECTS);
-  const [selectedGrades] = useState(GRADES); // ⭐ 分割代入から setSelectedGrades を削除
+  const [selectedGrades] = useState(GRADES); 
   
   const navigate = useNavigate();
 
@@ -39,16 +38,10 @@ const Settings = ({ onRulesConfirmed }) => {
       }
     };
 
-    // 実際には、この settings を Matchmaking.js へ渡し、部屋作成時にDBに保存します。
-    console.log('設定完了:', settings);
-    // 例: Matchmaking画面へ設定を渡して遷移
-    // navigate('/matchmaking', { state: { settings } });
-    
-    // 開発のため仮のコールバック
     onRulesConfirmed(settings); 
     
-    // 設定完了後、Matchmaking画面へ自動遷移
-    navigate('/matchmaking');
+    // ⭐ 設定完了後、Matchmaking画面へ自動遷移し、タイプ='private'、役割='host'を渡す
+    navigate('/matchmaking', { state: { type: 'private', role: 'host' } });
   };
 
   return (
@@ -96,7 +89,7 @@ const Settings = ({ onRulesConfirmed }) => {
         {/* 学年選択（ここでは全学年として固定することも可能） */}
       </div>
       
-      <button onClick={handleSubmit}>設定を確定し、マッチングへ</button>
+      <button onClick={handleSubmit}>設定を確定してマッチングへ</button>
     </div>
   );
 };

@@ -1,6 +1,5 @@
 // src/pages/Matchmaking.jsx
 
-// ⭐ 修正: useEffect のインポートを削除しました (未使用のため)
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom'; 
 import useGame from '../hooks/useGame';
@@ -14,16 +13,15 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
   const [message, setMessage] = useState('');
   
   const navigate = useNavigate();
-  // ⭐ Home.jsx から渡された state を取得
+  // ⭐ Home.jsx / Settings.jsx から渡された state を取得
   const location = useLocation();
   const matchType = location.state?.type; // 'open' or 'private'
+  const role = location.state?.role;     // 'host' or 'client' (private match時)
 
   // useGameフックは、ゲームの状態管理とFirebaseとの接続を担う
-  // ⭐ 修正: gameId の分割代入を削除しました (未使用のため)
   const { createHostGame } = useGame(null, myPlayerId);
 
   // --- 部屋作成処理（ホスト） ---
-  // ⭐ createHostGame に isOpenMatch パラメータを追加
   const handleCreateGame = async (isOpenMatch = false) => { 
     if (!playerName) {
       setMessage('名前を入力してください。');
@@ -106,7 +104,6 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
         return;
     }
     
-    // settings は App.jsx でデフォルト設定が入っているため、ここでは settings を使用
     const ruleSettings = settings.rules;
 
     setLoading(true);
@@ -140,22 +137,27 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
     }
   };
   
+  // プレイヤー名入力 UI
+  const playerNameInput = (
+    <input
+      type="text"
+      placeholder="あなたの名前"
+      value={playerName}
+      onChange={(e) => setPlayerName(e.target.value)}
+      disabled={loading}
+      style={{ padding: '10px', fontSize: '1.2em', marginBottom: '20px', width: '90%' }}
+    />
+  );
+
 
   return (
     <div>
       <h2>🚀 マッチメイキング</h2>
-      <input
-        type="text"
-        placeholder="あなたの名前"
-        value={playerName}
-        onChange={(e) => setPlayerName(e.target.value)}
-        disabled={loading}
-        style={{ padding: '10px', fontSize: '1.2em', marginBottom: '20px', width: '90%' }}
-      />
+      {playerNameInput} {/* 名前入力は常に表示 */}
       <p style={{ color: 'red' }}>{message}</p>
       <hr />
       
-      {/* ⭐ オープンマッチングのUI */}
+      {/* 1. オープンマッチングの UI */}
       {matchType === 'open' && (
         <div style={{ padding: '15px', border: '1px solid #007bff', borderRadius: '8px', marginBottom: '30px' }}>
             <h3>🌎 オープンマッチング</h3>
@@ -180,15 +182,14 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
         </div>
       )}
 
-      {/* ⭐ プライベートマッチングのUI (既存のロジック) */}
-      {(!matchType || matchType === 'private') && (
-        <div style={{ padding: '15px', border: '1px solid #6c757d', borderRadius: '8px' }}>
-            <h3>🔒 プライベートマッチング</h3>
+      {/* 2. プライベートマッチング - ホストモード */}
+      {matchType === 'private' && role === 'host' && (
+        <div style={{ padding: '15px', border: '1px solid #28a745', borderRadius: '8px' }}>
+            <h3>👑 プライベートマッチ (ホスト)</h3>
             <p style={{ marginBottom: '20px' }}>
-                <Link to="/settings">設定内容</Link>: {settings ? 'OK' : '未設定'}
+                設定内容: {settings ? 'OK' : '未設定'}
             </p>
             
-            <h4 style={{ marginTop: '0' }}>ホストとして部屋を作成</h4>
             <button 
               onClick={() => handleCreateGame(false)} // isOpenMatch=false (プライベート)
               disabled={loading || !playerName || !settings} 
@@ -203,15 +204,25 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
                   width: '100%'
               }}
             >
-              部屋を作成してホストになる ({settings ? '設定OK' : '設定必須'})
+              部屋を作成して待機する
             </button>
             
-            <hr style={{ margin: '30px 0' }} />
+            <p style={{ marginTop: '10px' }}>
+                <Link to="/settings" style={{ color: '#007bff', textDecoration: 'none' }}>
+                    設定を修正する
+                </Link>
+            </p>
+        </div>
+      )}
 
-            <h4>クライアントとして部屋に参加</h4>
+      {/* 3. プライベートマッチング - クライアントモード */}
+      {matchType === 'private' && role === 'client' && (
+        <div style={{ padding: '15px', border: '1px solid #ffc107', borderRadius: '8px' }}>
+            <h3>🚪 プライベートマッチ (参加)</h3>
+            <h4>参加する部屋IDを入力</h4>
             <input
               type="text"
-              placeholder="参加する4桁の部屋ID"
+              placeholder="4桁の部屋ID"
               value={joinId}
               onChange={(e) => setJoinId(e.target.value.substring(0, 4))}
               maxLength={4}
@@ -231,7 +242,7 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
       {/* 初期画面に戻るボタン */}
       <div style={{ marginTop: '30px' }}>
         <button 
-          onClick={() => navigate('/')} 
+          onClick={() => navigate(matchType === 'private' ? '/private-options' : '/')} // ⭐ プライベートマッチなら選択画面に戻る
           disabled={loading}
           style={{ padding: '10px 20px', fontSize: '1em', cursor: 'pointer', backgroundColor: '#ddd', border: 'none', borderRadius: '5px' }}
         >

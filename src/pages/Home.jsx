@@ -1,7 +1,6 @@
 // src/pages/Home.jsx
 
 import React from 'react';
-// ⭐ Link ではなく useNavigate を使用
 import { Link, useNavigate } from 'react-router-dom';
 
 const Home = () => {
@@ -49,17 +48,19 @@ const Home = () => {
 
   // プライベートマッチング開始時の処理
   const handlePrivateMatching = () => {
-    // 設定画面へ遷移し、設定後にマッチング画面へ進む
-    navigate('/settings', { state: { type: 'private' } });
+    // ⭐ 修正: Settings ではなく、新しい PrivateMatchOptions 画面へ遷移
+    navigate('/private-options');
   };
 
   return (
     <div style={containerStyle}>
+      <h2>ようこそ！早押しクイズバトルへ </h2>
       <p style={{ marginBottom: '30px', color: '#555' }}>対戦形式を選択してください。</p>
+
       {/* 1. オープンマッチング */}
       <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
         <h3>🌎 オープンマッチ</h3>
-        <p style={{ color: '#555' }}>デフォルトの出題設定で、ランダムな対戦相手と即座にマッチングします。</p>
+        <p style={{ color: '#555' }}>デフォルト設定で、ランダムな対戦相手と即座にマッチングします。</p>
         <button 
           onClick={handleOpenMatching} 
           style={primaryButtonStyle}
@@ -71,13 +72,12 @@ const Home = () => {
       {/* 2. プライベートマッチング */}
       <div style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
         <h3>🔒 プライベートマッチ</h3>
-        <p style={{ color: '#555' }}>ルールを自由に設定し、<br />部屋IDを共有して友人と対戦します。</p>
+        <p style={{ color: '#555' }}>ルールを自由に設定し、<br/>部屋番号を共有して友人と対戦します。</p>
         <button 
           onClick={handlePrivateMatching} 
           style={secondaryButtonStyle}
         >
-          プライベートマッチ（設定へ）
-        </button>
+          プライベートマッチで対戦</button>
       </div>
     </div>
   );
