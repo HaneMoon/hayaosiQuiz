@@ -1,14 +1,15 @@
 // src/App.jsx
 
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Home from './pages/Home.jsx'; // 拡張子を明示
-import Settings from './pages/Settings.jsx'; // 拡張子を明示
+// ⭐ 修正: useLocation をインポート
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import Home from './pages/Home.jsx'; 
+import Settings from './pages/Settings.jsx'; 
 import Matchmaking from './pages/Matchmaking.jsx';
 import Game from './pages/Game.jsx';
-import QuestionAdmin from './pages/QuestionAdmin.jsx'; // ★ 問題追加ページ
-import QuestionReview from './pages/QuestionReview.jsx'; // ★ 問題確認・削除ページを追加
-import './App.scss'; // ★ App.scss のインポートに変更
+import QuestionAdmin from './pages/QuestionAdmin.jsx';
+import QuestionReview from './pages/QuestionReview.jsx'; 
+import './App.scss';
 
 // --- アプリケーションのメインコンポーネント ---
 const App = () => {
@@ -39,32 +40,51 @@ const App = () => {
   };
 
   return (
+    // ⭐ Routerの外側では useLocation を使えないため、AppContent コンポーネントにロジックを分離します。
     <Router>
-      <header>
-        <h1>早押しクイズバトル F班</h1>
-        {/* Bootstrapのボタンに変換されたナビゲーション */}
-        <nav className="nav justify-content-center">
-          <Link to="/" className="btn btn-primary m-1">起動</Link>
-          <Link to="/settings" className="btn btn-success m-1">設定</Link>
-          <Link to="/matchmaking" className="btn btn-warning m-1">マッチング</Link>
-          {/* 問題追加ボタンと問題確認・削除ボタンを横並びに追加 */}
-          <Link to="/admin" className="btn btn-danger m-1">問題追加</Link> 
-          <Link to="/review" className="btn btn-danger m-1">問題確認・削除</Link> {/* ★ 問題確認・削除ボタンを追加 */}
-        </nav>
-      </header>
+      <AppContent 
+        settings={settings}
+        gameId={gameId}
+        myPlayerId={myPlayerId}
+        handleRulesConfirmed={handleRulesConfirmed}
+        handleGameReady={handleGameReady}
+        handleGameEnd={handleGameEnd}
+      />
+    </Router>
+  );
+};
+
+// ⭐ useLocation を使用するためのラッパーコンポーネント
+const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handleGameReady, handleGameEnd }) => {
+  const location = useLocation();
+  // 現在のパスが /game または /game/xxx で始まっているかチェック
+  const isGameRoute = location.pathname.startsWith('/game');
+
+  return (
+    <>
+      {/* ⭐ isGameRoute が false の場合のみヘッダーを表示 */}
+      {!isGameRoute && (
+        <header>
+          <h1>早押しクイズバトル F班</h1>
+            <nav className="nav justify-content-center">
+            <Link to="/" className="btn btn-primary m-1">起動</Link>
+            <Link to="/settings" className="btn btn-success m-1">設定</Link>
+            <Link to="/matchmaking" className="btn btn-warning m-1">マッチング</Link>
+            <Link to="/admin" className="btn btn-danger m-1">問題追加</Link> 
+            <Link to="/review" className="btn btn-danger m-1">問題確認・削除</Link> 
+          </nav>
+        </header>
+      )}
       
-      <main className="content container"> {/* Bootstrapのコンテナクラスを追加 */}
+      <main className="content container"> 
         <Routes>
-          {/* 起動画面 */}
           <Route path="/" element={<Home />} />
 
-          {/* 対戦ルール設定画面 */}
           <Route 
             path="/settings" 
             element={<Settings onRulesConfirmed={handleRulesConfirmed} />} 
           />
           
-          {/* マッチング画面 */}
           <Route 
             path="/matchmaking" 
             element={
@@ -75,20 +95,17 @@ const App = () => {
               />
             } 
           />
-          
-          {/* 問題管理ページ (追加) */}
+
           <Route 
             path="/admin" 
             element={<QuestionAdmin />} 
           />
 
-          {/* 問題確認・削除ページ (追加) */}
           <Route 
             path="/review" 
             element={<QuestionReview />} 
           />
-
-          {/* 対戦画面（ルートパラメータあり） */}
+          
           <Route 
             path="/game/:gameId" 
             element={
@@ -115,7 +132,7 @@ const App = () => {
 
         </Routes>
       </main>
-    </Router>
+    </>
   );
 };
 
