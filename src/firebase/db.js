@@ -1,7 +1,8 @@
-// src/db.js
+// src/firebase/db.js
 
 // firebase.js で初期化された db インスタンスをインポート
-import { db } from '../firebase'; 
+// ⭐ 修正: 同じディレクトリ (firebase/) 内の firebase.js からインポート
+import { db } from '../firebase.js'; 
 import { ref, get, set, child } from 'firebase/database';
 
 
