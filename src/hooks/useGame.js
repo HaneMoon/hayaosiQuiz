@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { onValue, ref, get, update, remove } from 'firebase/database';
-// ⭐ 修正: src/hooks から src/firebase/db.js をインポート
-import { createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
-// ⭐ 修正: src/hooks から src/firebase/firebase.js をインポート
-import { db } from '../firebase.js'; 
+// ⭐ db.js からインポートする関数を更新
+import { db, createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
 import { QUIZ_QUESTIONS } from '../utils/constants'; 
 
 
@@ -34,7 +32,7 @@ const subjectNodeMap = {
  */
 const useGame = (initialGameId, myPlayerId) => {
   const [gameId, setGameId] = useState(initialGameId);
-  // ⭐ 修正: 状態をより細かく管理するために、オブジェクトで初期化します。
+  // ⭐ null ではなく、初期オブジェクトを使用
   const [gameState, setGameState] = useState({
       id: initialGameId,
       players: {},
@@ -73,6 +71,7 @@ const useGame = (initialGameId, myPlayerId) => {
     const totalQuestionsLimit = settings?.rules?.totalQuestions || 10; 
     
     console.log(`[DEBUG: Q Fetch] Settings Subjects: ${subjectsToUse.join(', ')}. Limit: ${totalQuestionsLimit}問`);
+
     // Firebaseからの問題と、ローカルのQUIZ_QUESTIONSを統合
     let combinedQuestions = {};
     
@@ -393,11 +392,12 @@ const useGame = (initialGameId, myPlayerId) => {
 
   // --- マッチング処理（db.jsの関数をラップ） (変更なし) ---
   
-  const createHostGame = async (ruleSettings, hostPlayer) => {
-    const newGameId = await createNewGameWithRandom4DigitId(ruleSettings, hostPlayer);
+  // ⭐ createHostGame の定義を更新: isOpenMatch を受け取るようにする
+  const createHostGame = useCallback(async (ruleSettings, hostPlayer, isOpenMatch = false) => {
+    const newGameId = await createNewGameWithRandom4DigitId(ruleSettings, hostPlayer, isOpenMatch);
     setGameId(newGameId);
     return newGameId;
-  };
+  }, []);
 
   const joinClientGame = async (targetGameId, clientPlayer) => {
     const gameRef = ref(db, `games/${targetGameId}`);
@@ -416,96 +416,49 @@ const useGame = (initialGameId, myPlayerId) => {
     setGameId(targetGameId);
   };
 
-  // --- リアルタイムデータ同期: 【コスト削減のための大幅な修正】 ---
-  // ⭐ 単一の巨大な onValue を、必要なデータごとの小さな onValue に分割します。
+  // --- リアルタイムデータ同期 ---
+  // ⭐ 修正: プレイヤーが揃ったら、問題ロードを開始するロジックに変更
   useEffect(() => {
     if (!gameId) return;
+
+    const gameRef = ref(db, `games/${gameId}`);
     
-    // gameState を分割して管理することで、変更されたノードのデータのみが転送されます。
-    
-    // 1. ルール、ステータス、インデックスのリスナー
-    const rulesRef = ref(db, `games/${gameId}/rules`);
-    const statusRef = ref(db, `games/${gameId}/status`);
-    const indexRef = ref(db, `games/${gameId}/currentQuestionIndex`);
-    
-    const unsubscribeRules = onValue(rulesRef, (snapshot) => {
-        const rules = snapshot.val();
-        if (rules) {
-            // ルールはほとんど変更されないが、ゲーム開始時に必要
-            setGameState(prev => ({...prev, rules: rules, id: gameId})); 
+    const unsubscribe = onValue(gameRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setGameState({...data, id: snapshot.key}); 
+        
+        if (data.players) {
+          const playersArray = Object.values(data.players);
+          
+          const opponent = playersArray.find(
+            (player) => player.id !== myPlayerId 
+          );
+
+          if (opponent) {
+            setOpponentName(opponent.name);
+          } else {
+            setOpponentName(''); // 相手が退出した場合に備えてリセット
+          }
+
+          // ホストの場合、プレイヤーが揃い、まだ問題リストをロードしていないなら、ロードを開始
+          if (data.status === 'waiting' && playersArray.length === 2 && data.players[myPlayerId]?.isHost) {
+              if (!questionsLoaded && !questionList) {
+                  console.log("[Host] プレイヤーが揃いました。問題リストのロードを開始します。");
+                  fetchQuestionsForGame(data.settings); 
+              }
+          }
         }
-    });
-
-    const unsubscribeStatus = onValue(statusRef, (snapshot) => {
-        const status = snapshot.val();
-        if (status) {
-            // ステータスは waiting, playing, finished でしか変わらない
-            setGameState(prev => ({...prev, status: status, id: gameId})); 
-        }
-    });
-
-    const unsubscribeIndex = onValue(indexRef, (snapshot) => {
-        const index = snapshot.val();
-        if (index !== null) {
-            // インデックスは問題が切り替わる時にのみ変わる
-            setGameState(prev => ({...prev, currentQuestionIndex: index, id: gameId})); 
-        }
-    });
-
-
-    // 2. プレイヤーの状態 (スコア、名前、ホスト判定) のリスナー
-    const playersRef = ref(db, `games/${gameId}/players`);
-    const unsubscribePlayers = onValue(playersRef, (snapshot) => {
-        const playersData = snapshot.val();
-        if (playersData) {
-            // プレイヤー情報はスコア更新のたびに変わる
-            setGameState(prev => ({...prev, players: playersData, id: gameId})); 
-            
-            const playersArray = Object.values(playersData);
-            const opponent = playersArray.find(
-                (player) => player.id !== myPlayerId 
-            );
-
-            if (opponent) {
-                setOpponentName(opponent.name);
-            }
-
-            // ホストの場合、プレイヤーが揃い、まだ問題リストをロードしていないなら、ロードを開始
-            if (playersData[myPlayerId]?.isHost) {
-                // ルールとステータスが揃うのを待ってから処理
-                if (playersArray.length === 2 && gameState.status === 'waiting' && !questionsLoaded && !questionList) {
-                    console.log("[Host] プレイヤーが揃いました。問題リストのロードを開始します。");
-                    fetchQuestionsForGame(gameState.rules); 
-                }
-            }
-        }
-    });
-
-    // 3. 現在の問題の状態 (テキスト、バズ、解答権、ステータス) のリスナー
-    const currentQuestionRef = ref(db, `games/${gameId}/currentQuestion`);
-    const unsubscribeQuestion = onValue(currentQuestionRef, (snapshot) => {
-        const questionData = snapshot.val();
-        if (questionData) {
-            // バズや解答のたびに頻繁に変わるノード
-            setGameState(prev => ({...prev, currentQuestion: questionData, id: gameId}));
-        } else {
-            // ゲームが始まったばかりで currentQuestion がまだない場合
-            setGameState(prev => ({...prev, currentQuestion: null, id: gameId}));
-        }
-    });
-
-    // クリーンアップ関数: 全てのリスナーをデタッチ
-    return () => {
-        unsubscribeRules();
-        unsubscribeStatus();
-        unsubscribeIndex();
-        unsubscribePlayers();
-        unsubscribeQuestion();
+      } else {
+        setGameState(null);
         setOpponentName('');
-    };
-  }, [gameId, myPlayerId, fetchQuestionsForGame, questionsLoaded, questionList, gameState.status, gameState.rules]); 
+      }
+    });
+
+    return () => unsubscribe();
+  }, [gameId, myPlayerId, fetchQuestionsForGame, questionList, questionsLoaded]); 
   
-  // ⭐ 問題ロード完了をトリガーとしてゲームを開始する (変更なし)
+  // ⭐ 追加: 問題ロード完了をトリガーとしてゲームを開始する
   useEffect(() => {
       // ホストであり、ロードが完了し、問題リストがあり、ステータスが'waiting'ならゲーム開始
       if (isHost && questionsLoaded && questionList && gameState?.status === 'waiting') {
