@@ -39,6 +39,8 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   const answererId = gameState?.currentQuestion?.answererId; // 解答権を持つプレイヤー
   const buzzedPlayerId = gameState?.currentQuestion?.buzzedPlayerId; // 早押しボタンを押したプレイヤー
   const qStatus = gameState?.currentQuestion?.status; // 'reading', 'answering', 'judging', ...
+  // ⭐ 追加: ロックアウトされたプレイヤーのリストを取得
+  const lockedOutPlayers = gameState?.currentQuestion?.lockedOutPlayers || []; 
 
   // プレイヤーが解答権を持っているか
   const isMyTurn = answererId === myPlayerId && qStatus === 'answering'; 
@@ -46,6 +48,10 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   const isBuzzing = !!buzzedPlayerId; 
   // 問題に解答があったか (ホストが判定待ちの状態など)
   const isAnswered = ['judging', 'answered_correct', 'answered_wrong'].includes(qStatus); 
+  
+  // ⭐ 追加: 自分がロックアウトされているか
+  const isMeLockedOut = lockedOutPlayers.includes(myPlayerId);
+
 
   // --- プレイヤー情報の設定と取得 ---
   useEffect(() => {
@@ -171,15 +177,27 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       />
 
       {/* 状況メッセージ */}
+      
+      {/* ⭐ 修正: 自分がロックアウトされたメッセージを最優先で表示 */}
+      {isMeLockedOut && (
+          <p style={{ color: 'red', fontWeight: 'bold' }}>
+             ❌ 誤答により、あなたは今回の問題の解答権を失いました。
+          </p>
+      )}
+
+      {/* 相手が解答権を持っている場合 */}
       {buzzedPlayerId && buzzedPlayerId !== myPlayerId && qStatus === 'answering' && (
         <p style={{ color: 'orange' }}>
           {players[buzzedPlayerId]?.name || '誰か'} が先に回答ボタンを押しました。{players[buzzedPlayerId]?.name || '誰か'}に解答権があります。
         </p>
       )}
+      
       {qStatus === 'judging' && <p style={{ color: 'blue', fontWeight: 'bold' }}>ホストが解答を判定中です...</p>}
       {isMyTurn && <p style={{ color: 'green', fontWeight: 'bold' }}>解答権はあなたにあります！</p>}
       {qStatus === 'answered_correct' && <p style={{ color: 'green', fontWeight: 'bold' }}>正解！次の問題へ...</p>}
-      {qStatus === 'answered_wrong' && <p style={{ color: 'red', fontWeight: 'bold' }}>誤答です...</p>}
+      
+      {/* ⭐ qStatus === 'answered_wrong' は、全員が誤答して次に進む直前に表示されるメッセージとして残す */}
+      {qStatus === 'answered_wrong' && <p style={{ color: 'red', fontWeight: 'bold' }}>誰も正解できませんでした。<br/>次の問題を出題します</p>}
 
 
       {/* 入力コンポーネント */}
