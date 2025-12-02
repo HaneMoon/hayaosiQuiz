@@ -63,6 +63,16 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
     }
   }, [gameState, gameStatus, winnerId, routeGameId, propGameId, actualGameId, navigate, onGameEnd]); 
 
+  // --- ホームへ戻る処理の共通化 ---
+  const handleReturnHome = () => {
+    if (isHost) {
+        // ホストの場合、部屋の削除は非同期で行い、完了を待たずに遷移
+        deleteGameRoom().catch(error => console.error("部屋の削除に失敗しました:", error));
+    }
+    onGameEnd(); // App.jsx の状態をリセット (gameId=nullなど)
+    navigate('/'); // Home.jsx へ遷移
+  };
+
 
   // --- 操作ロジック ---
 
@@ -83,49 +93,62 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   if (gameStatus === 'finished' && winnerId) {
     const winner = players[winnerId];
     
-    // ⭐ 修正: ホームへ戻る処理をラップし、ホストであれば削除処理を実行する
-    const handleReturnHome = () => {
-        if (isHost) {
-            deleteGameRoom(); // ホストの場合、遷移直前に削除を実行
-        }
-        onGameEnd(); // App.jsx の状態をリセット (gameId=nullなど)
-        navigate('/'); // Home.jsx へ遷移
-    };
-
     return (
       <ResultDisplay 
         winnerName={winner?.name || '不明なプレイヤー'} 
         myPlayerName={myPlayerName} 
-        onReturnHome={handleReturnHome} // コールバックを渡す
+        onReturnHome={handleReturnHome} // ⭐ 共通化されたコールバックを渡す
       />
     );
   }
 
   // 2. 対戦待ち画面
   if (gameStatus === 'waiting' || !gameState) {
+    
+    // 対戦相手待ちの基本表示
+    const waitingDisplay = (
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <h2>⏱️ 対戦相手を待っています...</h2>
+        <p style={{ fontSize: '1.2em' }}>あなたの部屋ID: <strong>{actualGameId}</strong></p>
+        <p style={{ fontSize: '1.2em' }}>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
+        
+        {isHost && <p style={{ marginTop: '20px', color: '#888' }}>あなたはホストです。相手が参加したらゲームを開始できます。</p>}
+        
+        {/* ⭐ 待機画面に追加されたボタン */}
+        <button 
+          onClick={handleReturnHome} 
+          style={{ 
+            padding: '10px 20px', 
+            fontSize: '1.0em', 
+            cursor: 'pointer', 
+            backgroundColor: isHost ? '#dc3545' : '#6c757d', // ホストなら赤、クライアントならグレー
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '5px',
+            marginTop: '30px',
+          }}
+        >
+          {isHost ? '部屋を削除してホームに戻る' : 'ゲームを終了してホームに戻る'}
+        </button>
+      </div>
+    );
+    
     // ⭐ 追加: プレイヤーが揃い、ホストで問題ロード中
     if (gameState?.players && Object.keys(gameState.players).length === 2 && isHost && !questionsLoaded) {
         return (
-            <div>
+            <div style={{ textAlign: 'center', padding: '50px' }}>
                 <h2>⏱️ 対戦相手を待っています...</h2>
-                <p>あなたの部屋ID: <strong>{actualGameId}</strong></p>
-                <p>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
+                <p style={{ fontSize: '1.2em' }}>あなたの部屋ID: <strong>{actualGameId}</strong></p>
+                <p style={{ fontSize: '1.2em' }}>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
                 <h3 style={{ color: 'orange', marginTop: '30px' }}>
                     📦 問題データをロード中です...しばらくお待ちください。
                 </h3>
+                {waitingDisplay.props.children.slice(-1)} {/* ボタンだけ再利用 */}
             </div>
         );
     }
 
-    // ⭐ 既存の対戦相手待ちの表示
-    return (
-      <div>
-        <h2>⏱️ 対戦相手を待っています...</h2>
-        <p>あなたの部屋ID: <strong>{actualGameId}</strong></p>
-        <p>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
-        {isHost && <p>あなたはホストです。相手が参加したらゲームを開始できます。</p>}
-      </div>
-    );
+    return waitingDisplay;
   }
   
   // 3. プレイ中のメイン画面
