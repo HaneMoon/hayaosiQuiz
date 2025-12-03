@@ -46,17 +46,18 @@ const Settings = ({ onRulesConfirmed }) => {
 
   return (
     <div>
-      <h2>⚙️ 対戦ルール設定と範囲選択</h2>
+      <h2>対戦ルール設定と範囲選択</h2>
 
       {/* 1. 対戦ルール設定 */}
       <h3>対戦ルール</h3>
       <div>
-        <label>勝利点 (基本: 8点):</label>
+        <label>勝利点 (デフォルト: 8点):</label>
         <input
           type="number"
           value={rules.winPoints}
           onChange={(e) => handleRuleChange("winPoints", e.target.value)}
         />
+        <br />
         <label>誤答ペナルティ:</label>
         <select
           value={rules.wrongAnswerPenalty}

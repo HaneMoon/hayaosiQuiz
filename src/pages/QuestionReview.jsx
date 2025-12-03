@@ -1,8 +1,8 @@
 // src/pages/QuestionReview.jsx
 
-import React, { useState, useEffect, useMemo, useRef } from 'react'; 
-import { db } from '../firebase/db'; 
-import { ref, onValue, remove, update } from 'firebase/database'; 
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { db } from '../firebase/db';
+import { ref, onValue, remove, update } from 'firebase/database';
 
 const subjectNodeMap = {
     '国語': 'japanese',
@@ -17,18 +17,18 @@ const japaneseSubjectMap = Object.entries(subjectNodeMap).reduce((acc, [key, val
     return acc;
 }, {});
 
-const EditForm = ({ 
-    editingQuestion, 
-    editFormData, 
-    setEditFormData, 
-    handleUpdate, 
-    setEditingQuestion, 
-    editFormRef 
+const EditForm = ({
+    editingQuestion,
+    editFormData,
+    setEditFormData,
+    handleUpdate,
+    setEditingQuestion,
+    editFormRef
 }) => (
-    <div 
-        ref={editFormRef} 
-        tabIndex="-1" 
-        className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 outline-none" 
+    <div
+        ref={editFormRef}
+        tabIndex="-1"
+        className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 outline-none"
     >
         <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-lg">
             <h3 className="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">
@@ -65,17 +65,17 @@ const EditForm = ({
                         onChange={(e) => setEditFormData({ ...editFormData, optionsString: e.target.value })}
                     />
                 </div>
-                
+
                 <div className="d-flex justify-content-end space-x-3">
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         className="btn btn-secondary"
                         onClick={() => setEditingQuestion(null)}
                     >
                         キャンセル
                     </button>
-                    <button 
-                        type="submit" 
+                    <button
+                        type="submit"
                         className="btn btn-success"
                     >
                         <i className="bi bi-save me-1"></i> 更新を保存
@@ -90,13 +90,13 @@ const QuestionReview = () => {
     const [questions, setQuestions] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedSubjectNode, setSelectedSubjectNode] = useState('all'); 
-    const [editingQuestion, setEditingQuestion] = useState(null); 
-    const [editFormData, setEditFormData] = useState({}); 
+    const [selectedSubjectNode, setSelectedSubjectNode] = useState('all');
+    const [editingQuestion, setEditingQuestion] = useState(null);
+    const [editFormData, setEditFormData] = useState({});
     // 💡 検索キーワードの状態を追加
-    const [searchTerm, setSearchTerm] = useState(''); 
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const editFormRef = useRef(null); 
+    const editFormRef = useRef(null);
 
     useEffect(() => {
         const questionsRef = ref(db, 'questions');
@@ -106,9 +106,9 @@ const QuestionReview = () => {
                 const data = snapshot.val();
                 setQuestions(data);
             } else {
-                setQuestions({}); 
+                setQuestions({});
             }
-            setLoading(false); 
+            setLoading(false);
         }, (err) => {
             console.error("[QuestionReview] Firebase fetch error:", err);
             setError("問題データの取得中にエラーが発生しました。");
@@ -128,16 +128,16 @@ const QuestionReview = () => {
             }
         });
         return count;
-    }, [questions]); 
+    }, [questions]);
 
     // 💡 フィルタリングロジックを強化: 教科フィルタと検索フィルタを統合
     const filteredQuestions = useMemo(() => {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
         const filtered = {};
-        
+
         // 1. 教科フィルタを適用
-        const nodesToFilter = selectedSubjectNode === 'all' 
-            ? Object.keys(questions) 
+        const nodesToFilter = selectedSubjectNode === 'all'
+            ? Object.keys(questions)
             : Object.keys(questions).filter(node => node === selectedSubjectNode);
 
         nodesToFilter.forEach(subjectNode => {
@@ -163,8 +163,8 @@ const QuestionReview = () => {
         });
 
         return filtered;
-    }, [questions, selectedSubjectNode, searchTerm]); 
-    
+    }, [questions, selectedSubjectNode, searchTerm]);
+
     // フィルタリング後の総問題数を再計算
     const filteredTotalCount = useMemo(() => {
         let count = 0;
@@ -198,7 +198,7 @@ const QuestionReview = () => {
         if (!editingQuestion) return;
 
         const { subjectNode, questionId } = editingQuestion;
-        
+
         const updatedData = {
             text: editFormData.text,
             answer: editFormData.answer,
@@ -206,26 +206,26 @@ const QuestionReview = () => {
 
         if (editFormData.optionsString) {
             const optionsArray = editFormData.optionsString.split(' / ')
-                                .map(text => text.trim())
-                                .filter(text => text.length > 0)
-                                .map(text => ({ text: text }));
+                .map(text => text.trim())
+                .filter(text => text.length > 0)
+                .map(text => ({ text: text }));
             updatedData.options = optionsArray;
         } else {
             updatedData.options = [];
         }
 
         const questionRef = ref(db, `questions/${subjectNode}/${questionId}`);
-        
+
         try {
             await update(questionRef, updatedData);
-            
+
             setEditingQuestion(null);
             setEditFormData({});
             alert("問題が正常に更新されました。");
 
         } catch (err) {
             console.error(`[Update] Failed to update question ${questionId}:`, err);
-            alert(`問題の更新に失敗しました: ${err.message}`); 
+            alert(`問題の更新に失敗しました: ${err.message}`);
         }
     };
 
@@ -235,16 +235,16 @@ const QuestionReview = () => {
         }
 
         const questionRef = ref(db, `questions/${subjectNode}/${questionId}`);
-        
+
         try {
             await remove(questionRef);
             console.log(`[Delete] Question ${questionId} from ${subjectNode} successfully deleted.`);
         } catch (err) {
             console.error(`[Delete] Failed to delete question ${questionId}:`, err);
-            alert(`問題の削除に失敗しました: ${err.message}`); 
+            alert(`問題の削除に失敗しました: ${err.message}`);
         }
     };
-    
+
     if (loading) {
         // ... (省略)
     }
@@ -256,7 +256,7 @@ const QuestionReview = () => {
     const hasQuestions = totalQuestionCount > 0;
 
     return (
-        <div className="container mt-3"> 
+        <div className="container mt-3">
             <div className="text-center">問題確認・削除ページ</div>
             {/* 💡 検索ボックスの追加 */}
             <div className="mb-6 p-4 border border-gray-300 rounded-lg bg-white shadow-lg">
@@ -283,14 +283,14 @@ const QuestionReview = () => {
                 >
                     <option value="all">全ての教科 ({totalQuestionCount} 問)</option>
                     {Object.entries(subjectNodeMap).map(([japaneseName, nodeName]) => {
-                         const count = questions[nodeName] ? Object.keys(questions[nodeName]).length : 0;
-                         if (count === 0 && selectedSubjectNode !== nodeName) return null; 
+                        const count = questions[nodeName] ? Object.keys(questions[nodeName]).length : 0;
+                        if (count === 0 && selectedSubjectNode !== nodeName) return null;
 
-                         return (
+                        return (
                             <option key={nodeName} value={nodeName}>
                                 {japaneseName} ({count} 問)
                             </option>
-                         );
+                        );
                     })}
                 </select>
             </div>
@@ -309,7 +309,7 @@ const QuestionReview = () => {
 
                     <div className="space-y-8">
                         {Object.keys(filteredQuestions) // 💡 filteredQuestionsのキーを使用
-                            .sort((a, b) => { 
+                            .sort((a, b) => {
                                 const nameA = japaneseSubjectMap[a] || a;
                                 const nameB = japaneseSubjectMap[b] || b;
                                 return nameA.localeCompare(nameB, 'ja');
@@ -326,9 +326,9 @@ const QuestionReview = () => {
                                         </h3>
                                         <ul className="space-y-4">
                                             {questionList.map(([questionId, q]) => {
-                                                
-                                                const optionsText = q.options && Array.isArray(q.options) 
-                                                    ? q.options.map(opt => opt.text || opt).join(' / ') 
+
+                                                const optionsText = q.options && Array.isArray(q.options)
+                                                    ? q.options.map(opt => opt.text || opt).join(' / ')
                                                     : 'なし';
 
                                                 return (
@@ -336,10 +336,12 @@ const QuestionReview = () => {
                                                         <div className="flex-grow me-md-4 mb-3 mb-md-0">
                                                             <div className="d-flex align-items-center mb-1">
                                                                 <span className="badge bg-secondary me-3 text-sm font-mono">ID: {questionId}</span>
-                                                                <strong className="text-lg text-gray-900">
-                                                                    {q.text?.substring(0, 70) + (q.text?.length > 70 ? '...' : '')}
-                                                                </strong>
                                                             </div>
+                                                            
+                                                            <strong className="text-lg text-gray-900">
+                                                                {q.text?.substring(0, 70) + (q.text?.length > 70 ? '...' : '')}
+                                                            </strong>
+                                                            
                                                             <div className="text-sm text-gray-600 space-y-1 ps-5">
                                                                 <p>
                                                                     <span className="font-semibold text-green-700">正解: </span>
@@ -375,10 +377,10 @@ const QuestionReview = () => {
                     </div>
                 </>
             )}
-            
+
             {/* 編集中の問題がある場合のみフォームを表示 */}
             {editingQuestion && (
-                <EditForm 
+                <EditForm
                     editingQuestion={editingQuestion}
                     editFormData={editFormData}
                     setEditFormData={setEditFormData}
