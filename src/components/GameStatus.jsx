@@ -32,7 +32,7 @@ const GameStatus = ({ players, myPlayerId, opponentName, isHost }) => {
       {/* 自分のステータス */}
       <div style={{ flex: 1, borderRight: opponent ? '1px solid #ddd' : 'none', paddingRight: '10px' }}>
         <h3 style={{ margin: '0 0 10px 0', color: isHost ? '#007bff' : '#333' }}>
-           あなた {isHost ? '(ホスト)' : ''} {/* ⭐ isHost プロパティを使用 */}
+           あなた {isHost ? '(ホスト)' : ''} {/*  isHost プロパティを使用 */}
         </h3>
         <p style={{ margin: 0, fontSize: '1.8em', fontWeight: 'bold', color: myPlayer?.score >= 8 ? 'green' : '#333' }}>
         {myPlayer?.score || 0} 点
@@ -43,7 +43,7 @@ const GameStatus = ({ players, myPlayerId, opponentName, isHost }) => {
       {opponent && (
         <div style={{ flex: 1, paddingLeft: '10px' }}>
           <h3 style={{ margin: '0 0 10px 0', color: opponent.isHost ? '#007bff' : '#333' }}>
-           {opponentName || '不明'} {/* ⭐ opponentName プロパティを使用 */}
+           {opponentName || '不明'} {/*  opponentName プロパティを使用 */}
           </h3>
           <p style={{ margin: 0, fontSize: '1.8em', fontWeight: 'bold', color: opponent.score >= 8 ? 'green' : '#333' }}>
           {opponent.score || 0} 点

@@ -6,8 +6,8 @@ import { SUBJECTS, GRADES } from '../utils/constants'; // 定数をインポー�
 const QuestionAdmin = () => {
   const [questionData, setQuestionData] = useState({
     subject: SUBJECTS[0] || '国語',
-    grade: GRADES[0] || '小1', // ⭐ 修正: 初期の学年をGRADSの最初の要素（小1）に設定
-    type: '選択式', // ⭐ 修正: デフォルトを '選択式' に変更
+    grade: GRADES[0] || '小1', //  修正: 初期の学年をGRADSの最初の要素（小1）に設定
+    type: '選択式', //  修正: デフォルトを '選択式' に変更
     text: '',
     answer: '',
     explanation: '',
@@ -159,7 +159,6 @@ const QuestionAdmin = () => {
               value={questionData.grade} 
               onChange={handleChange}
             >
-              {/* GRADESには'小1'から'中3'までの全範囲が含まれています */}
               {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
@@ -173,8 +172,8 @@ const QuestionAdmin = () => {
               value={questionData.type} 
               onChange={handleChange}
             >
-              <option value="知識">知識/記述/計算 (早押し)</option>
-              <option value="選択式">選択式 (早押し/誤答ペナルティ)</option>
+              <option value="知識">記述式</option>
+              <option value="選択式">選択式 (4択問題)</option>
             </select>
           </div>
         </div>
@@ -195,7 +194,7 @@ const QuestionAdmin = () => {
         {/* 解答 (選択式でない場合のみ表示) */}
         {questionData.type !== '選択式' && (
           <div className="mb-3">
-            <label className="form-label">解答 (正確に)</label>
+            <label className="form-label">解答 (一言一句合わないと正解しないので考えて入力してね)</label>
             <input 
               type="text" 
               className="form-control" 
@@ -253,7 +252,7 @@ const QuestionAdmin = () => {
           onClick={handleSaveQuestion} 
           className="btn btn-primary btn-lg mt-3"
         >
-          問題データをFirebaseに保存
+          問題を保存
         </button>
         
         {message && <p className={`mt-3 alert ${message.includes('成功') ? 'alert-success' : 'alert-danger'}`}>{message}</p>}

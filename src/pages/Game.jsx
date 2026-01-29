@@ -26,7 +26,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
     submitAnswer, 
     isHost, 
     deleteGameRoom, 
-    questionsLoaded, // ⭐ 追加: 問題のロード状態を取得
+    questionsLoaded, //  追加: 問題のロード状態を取得
   } = useGame(actualGameId, myPlayerId);
 
   // --- ゲームの状態表示に必要な変数 ---
@@ -39,7 +39,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   const answererId = gameState?.currentQuestion?.answererId; // 解答権を持つプレイヤー
   const buzzedPlayerId = gameState?.currentQuestion?.buzzedPlayerId; // 早押しボタンを押したプレイヤー
   const qStatus = gameState?.currentQuestion?.status; // 'reading', 'answering', 'judging', ...
-  // ⭐ 追加: ロックアウトされたプレイヤーのリストを取得
+  //  追加: ロックアウトされたプレイヤーのリストを取得
   const lockedOutPlayers = gameState?.currentQuestion?.lockedOutPlayers || []; 
 
   // プレイヤーが解答権を持っているか
@@ -49,7 +49,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   // 問題に解答があったか (ホストが判定待ちの状態など)
   const isAnswered = ['judging', 'answered_correct', 'answered_wrong'].includes(qStatus); 
   
-  // ⭐ 追加: 自分がロックアウトされているか
+  //  追加: 自分がロックアウトされているか
   const isMeLockedOut = lockedOutPlayers.includes(myPlayerId);
 
 
@@ -103,7 +103,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       <ResultDisplay 
         winnerName={winner?.name || '不明なプレイヤー'} 
         myPlayerName={myPlayerName} 
-        onReturnHome={handleReturnHome} // ⭐ 共通化されたコールバックを渡す
+        onReturnHome={handleReturnHome} //  共通化されたコールバックを渡す
       />
     );
   }
@@ -114,13 +114,13 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
     // 対戦相手待ちの基本表示
     const waitingDisplay = (
       <div style={{ textAlign: 'center', padding: '50px' }}>
-        <h2>⏱️ 対戦相手を待っています...</h2>
+        <h2>対戦相手を待っています...</h2>
         <p style={{ fontSize: '1.2em' }}>あなたの部屋ID: <strong>{actualGameId}</strong></p>
         <p style={{ fontSize: '1.2em' }}>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
         
         {isHost && <p style={{ marginTop: '20px', color: '#888' }}>あなたはホストです。相手が参加したらゲームを開始できます。</p>}
         
-        {/* ⭐ 待機画面に追加されたボタン */}
+        {/*  待機画面に追加されたボタン */}
         <button 
           onClick={handleReturnHome} 
           style={{ 
@@ -139,15 +139,15 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       </div>
     );
     
-    // ⭐ 追加: プレイヤーが揃い、ホストで問題ロード中
+    //  追加: プレイヤーが揃い、ホストで問題ロード中
     if (gameState?.players && Object.keys(gameState.players).length === 2 && isHost && !questionsLoaded) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
-                <h2>⏱️ 対戦相手を待っています...</h2>
+                <h2>対戦相手を待っています...</h2>
                 <p style={{ fontSize: '1.2em' }}>あなたの部屋ID: <strong>{actualGameId}</strong></p>
                 <p style={{ fontSize: '1.2em' }}>対戦相手: {opponentName ? <strong>{opponentName}</strong> : '待機中'}</p>
                 <h3 style={{ color: 'orange', marginTop: '30px' }}>
-                    📦 問題データをロード中です...しばらくお待ちください。
+                    問題データをロード中です...しばらくお待ちください。
                 </h3>
                 {waitingDisplay.props.children.slice(-1)} {/* ボタンだけ再利用 */}
             </div>
@@ -160,7 +160,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
   // 3. プレイ中のメイン画面
   return (
     <div>
-      <h2>バトル中 (ID: {actualGameId})</h2>
+      {/* <h2>バトル中 (部屋ID: {actualGameId})</h2> */}
       <GameStatus 
         players={players} 
         myPlayerId={myPlayerId} 
@@ -177,8 +177,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       />
 
       {/* 状況メッセージ */}
-      
-      {/* ⭐ 修正: 自分がロックアウトされたメッセージを最優先で表示 */}
+      {/* 間違えて回答できないとき */}
       {isMeLockedOut && (
           <p style={{ color: 'red', fontWeight: 'bold' }}>
              ❌ 誤答により、あなたは今回の問題の解答権を失いました。
@@ -188,7 +187,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       {/* 相手が解答権を持っている場合 */}
       {buzzedPlayerId && buzzedPlayerId !== myPlayerId && qStatus === 'answering' && (
         <p style={{ color: 'orange' }}>
-          {players[buzzedPlayerId]?.name || '誰か'} が先に回答ボタンを押しました。{players[buzzedPlayerId]?.name || '誰か'}に解答権があります。
+          {players[buzzedPlayerId]?.name || '相手プレーヤー'} が先に回答ボタンを押しました。{players[buzzedPlayerId]?.name || '相手プレーヤー'}に解答権があります。
         </p>
       )}
       
@@ -196,7 +195,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
       {isMyTurn && <p style={{ color: 'green', fontWeight: 'bold' }}>解答権はあなたにあります！</p>}
       {qStatus === 'answered_correct' && <p style={{ color: 'green', fontWeight: 'bold' }}>正解！次の問題へ...</p>}
       
-      {/* ⭐ qStatus === 'answered_wrong' は、全員が誤答して次に進む直前に表示されるメッセージとして残す */}
+      {/*  qStatus === 'answered_wrong' は、全員が誤答して次に進む直前に表示されるメッセージとして残す */}
       {qStatus === 'answered_wrong' && <p style={{ color: 'red', fontWeight: 'bold' }}>誰も正解できませんでした。<br/>次の問題を出題します</p>}
 
 

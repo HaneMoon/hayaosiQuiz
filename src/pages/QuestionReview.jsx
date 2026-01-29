@@ -93,7 +93,6 @@ const QuestionReview = () => {
     const [selectedSubjectNode, setSelectedSubjectNode] = useState('all');
     const [editingQuestion, setEditingQuestion] = useState(null);
     const [editFormData, setEditFormData] = useState({});
-    // 💡 検索キーワードの状態を追加
     const [searchTerm, setSearchTerm] = useState('');
 
     const editFormRef = useRef(null);
@@ -130,7 +129,6 @@ const QuestionReview = () => {
         return count;
     }, [questions]);
 
-    // 💡 フィルタリングロジックを強化: 教科フィルタと検索フィルタを統合
     const filteredQuestions = useMemo(() => {
         const lowerCaseSearchTerm = searchTerm.toLowerCase();
         const filtered = {};
@@ -258,7 +256,6 @@ const QuestionReview = () => {
     return (
         <div className="container mt-3">
             <div className="text-center">問題確認・削除ページ</div>
-            {/* 💡 検索ボックスの追加 */}
             <div className="mb-6 p-4 border border-gray-300 rounded-lg bg-white shadow-lg">
                 <label htmlFor="search-term" className="block text-md font-medium text-gray-700 mb-2">
                     問題文で検索:
@@ -299,7 +296,7 @@ const QuestionReview = () => {
             {!hasQuestions ? (
                 <div className="alert alert-warning text-center p-4 shadow-md bg-yellow-100 border-yellow-400">
                     <i className="bi bi-info-circle me-2"></i>
-                    現在、Firebaseに登録されている問題はありません。「問題追加」ページから追加してください。
+                    問題を取得中です。
                 </div>
             ) : (
                 <>

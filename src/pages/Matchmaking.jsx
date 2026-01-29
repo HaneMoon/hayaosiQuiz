@@ -82,10 +82,10 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
     };
 
     try {
-      // ⭐ db.js の addClientToGame を直接呼び出す
+      //  db.js の addClientToGame を直接呼び出す
       await addClientToGame(joinId, clientPlayer);
       
-      console.log(`[DEBUG] 部屋参加成功: ${joinId}。ゲーム画面へ遷移します。`);
+      // console.log(`[DEBUG] 部屋参加成功: ${joinId}。ゲーム画面へ遷移します。`);
       onGameReady(joinId); // App.jsx にゲームIDを伝える
       navigate(`/game/${joinId}`);
       
@@ -117,12 +117,11 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
     };
 
     try {
-      // ⭐ db.js で実装したロジックを呼び出す
       const gameId = await findOrCreateOpenGame(ruleSettings, clientPlayer);
       
       // 成功時、Game画面へ遷移
       if (gameId) {
-        console.log(`[DEBUG] オープンマッチ成功: ${gameId}。ゲーム画面へ遷移します。`);
+        console.log(`[DEBUG] マッチング成功: ${gameId}。ゲーム画面へ遷移します。`);
         onGameReady(gameId);
         navigate(`/game/${gameId}`);
       } else {
@@ -130,8 +129,8 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
       }
       
     } catch (error) {
-        console.error("オープンマッチング失敗:", error);
-        setMessage('オープンマッチングに失敗しました。');
+        console.error("マッチング失敗:", error);
+        setMessage('マッチングに失敗しました。');
     } finally {
         setLoading(false);
     }
@@ -152,7 +151,7 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
 
   return (
     <div>
-      <h2>🚀 マッチメイキング</h2>
+      <h2>マッチメイキング</h2>
       {playerNameInput} {/* 名前入力は常に表示 */}
       <p style={{ color: 'red' }}>{message}</p>
       <hr />
@@ -161,7 +160,7 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
       {matchType === 'open' && (
         <div style={{ padding: '15px', border: '1px solid #007bff', borderRadius: '8px', marginBottom: '30px' }}>
             <h3>🌎 オープンマッチング</h3>
-            <p>名前を入力し、ボタンを押すと自動で対戦相手を検索/部屋を作成します。</p>
+            <p>名前を入力し、ボタンを押すと自動で対戦相手を検索します。</p>
              <button 
                 onClick={handleFindOrCreateOpenGame} 
                 disabled={loading || !playerName} 
@@ -177,15 +176,15 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
                     marginTop: '10px'
                 }}
             >
-                {loading ? 'マッチング中...' : 'オープンマッチング開始'}
+                {loading ? 'マッチング中...' : 'マッチング開始'}
             </button>
         </div>
       )}
 
-      {/* 2. プライベートマッチング - ホストモード */}
+      {/* 2. 部屋を建てる方 */}
       {matchType === 'private' && role === 'host' && (
         <div style={{ padding: '15px', border: '1px solid #28a745', borderRadius: '8px' }}>
-            <h3>👑 プライベートマッチ (ホスト)</h3>
+            <h3>ホストとして部屋を作る</h3>
             <p style={{ marginBottom: '20px' }}>
                 設定内容: {settings ? 'OK' : '未設定'}
             </p>
@@ -204,7 +203,7 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
                   width: '100%'
               }}
             >
-              部屋を作成して待機する
+              部屋を作成する
             </button>
             
             <p style={{ marginTop: '10px' }}>
@@ -215,10 +214,10 @@ const Matchmaking = ({ myPlayerId, settings, onGameReady }) => {
         </div>
       )}
 
-      {/* 3. プライベートマッチング - クライアントモード */}
+      {/* 3. 部屋に参加する方 */}
       {matchType === 'private' && role === 'client' && (
         <div style={{ padding: '15px', border: '1px solid #ffc107', borderRadius: '8px' }}>
-            <h3>🚪 プライベートマッチ (参加)</h3>
+            <h3> 部屋に参加する</h3>
             <h4>参加する部屋IDを入力</h4>
             <input
               type="text"

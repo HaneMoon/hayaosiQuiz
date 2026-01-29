@@ -5,13 +5,12 @@ import React, { useState, useEffect } from 'react';
 const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, options }) => {
   const [answer, setAnswer] = useState('');
   
-  // デバッグログの強化: isAnswerSelectable と options の両方を確認
   useEffect(() => {
     console.log("[DEBUG: AnswerInput] Current isAnswerSelectable:", isAnswerSelectable);
     console.log("[DEBUG: AnswerInput] Current Options:", options);
   }, [isAnswerSelectable, options]);
   
-  // Enterキーでの操作ロジック
+  // Enterキーで操作できるようにする
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Enterキーが押されたら
@@ -20,7 +19,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
         e.preventDefault(); 
         
         if (isMyTurn) {
-            // ⭐ 解答権がある場合: 
+            // 解答権がある場合: 
             // 選択肢がない(記述式)かつ入力がある、または選択肢式だがボタン操作をスキップしEnterでテキストを送信したい場合
             if (!isAnswerSelectable && answer.trim()) { 
                 onSubmitAnswer(answer);
@@ -29,7 +28,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
             // 選択肢式の場合はボタンクリックを推奨するため、Enterでは何もしない
             
         } else {
-            // ⭐ 早押し待機中の場合: 早押しを実行
+            //早押し待機中の場合: 早押しを実行
             onBuzz(); 
         }
       }
@@ -92,10 +91,10 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
 
   return (
     <div style={fixedButtonContainerStyle}> {/* 固定コンテナを使用 */}
-      {/* ⭐ isAnswerSelectable が true かつ optionList に要素がある場合に選択肢を表示 */}
+      {/* isAnswerSelectable が true かつ optionList に要素がある場合に選択肢を表示 */}
       {isAnswerSelectable && optionList.length > 0 ? ( 
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
-          {optionList.map((optText, index) => { // ⭐ optText を直接使用
+          {optionList.map((optText, index) => { // optText を直接使用
               return (
                   <button 
                       key={index} 
@@ -116,7 +115,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
                           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                       }}
                   >
-                      {optText} {/* ⭐ optText を表示 */}
+                      {optText} {/* optText を表示 */}
                   </button>
               );
           })}

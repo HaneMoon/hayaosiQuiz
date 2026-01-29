@@ -3,7 +3,7 @@
 // firebase.js で初期化された db インスタンスをインポート
 import { db } from '../firebase'; 
 import { ref, get, set, child } from 'firebase/database';
-// ⭐ Firebase Query のインポートを追加
+//  Firebase Query のインポートを追加
 import { query, orderByChild, equalTo, limitToFirst } from 'firebase/database';
 
 
@@ -11,10 +11,10 @@ import { query, orderByChild, equalTo, limitToFirst } from 'firebase/database';
  * 衝突しない数字4桁のランダムなIDを生成し、新しいゲームセッションを作成する。
  * @param {object} ruleSettings - 対戦ルール設定。
  * @param {object} hostPlayer - ホストプレイヤー情報 (id, name, score=0, isHost=true)。
- * @param {boolean} isOpenMatch - オープンマッチングの部屋かどうか ⭐ 追加
+ * @param {boolean} isOpenMatch - オープンマッチングの部屋かどうか  追加
  * @returns {Promise<string>} 生成された4桁のゲームID。
  */
-const createNewGameWithRandom4DigitId = async (ruleSettings, hostPlayer, isOpenMatch = false) => { // ⭐ isOpenMatch パラメータを追加
+const createNewGameWithRandom4DigitId = async (ruleSettings, hostPlayer, isOpenMatch = false) => { //  isOpenMatch パラメータを追加
   const gamesRef = ref(db, 'games'); // /games/ ノードへの参照
   let gameId = '';
   let isUnique = false;
@@ -42,7 +42,7 @@ const createNewGameWithRandom4DigitId = async (ruleSettings, hostPlayer, isOpenM
     players: {
       [hostPlayer.id]: hostPlayer,
     },
-    // ⭐ isOpenMatch フラグを追加
+    //  isOpenMatch フラグを追加
     isOpenMatch: isOpenMatch,
     currentQuestion: {
       questionId: null,
@@ -76,7 +76,7 @@ const findOrCreateOpenGame = async (ruleSettings, clientPlayer) => {
   const gamesRef = ref(db, 'games');
   
   // 1. 空いているオープンマッチの部屋を検索
-  // ⭐ クエリ: status が 'waiting' のもの (Firebase Consoleで .indexOn: "status" が必要)
+  //  クエリ: status が 'waiting' のもの (Firebase Consoleで .indexOn: "status" が必要)
   const openGamesQuery = query(
     gamesRef,
     orderByChild('status'),
@@ -97,7 +97,7 @@ const findOrCreateOpenGame = async (ruleSettings, clientPlayer) => {
       const game = games[gameId];
       const playerCount = Object.keys(game.players || {}).length;
       
-      // ⭐ 修正: 確実に isOpenMatch と playerCount をチェック
+      //  修正: 確実に isOpenMatch と playerCount をチェック
       if (game.isOpenMatch === true && playerCount === 1) {
         availableGameId = gameId;
         console.log(`[Success] 空いているオープン部屋を発見: ${availableGameId}`);
@@ -137,6 +137,6 @@ export {
   db, 
   createNewGameWithRandom4DigitId,
   addClientToGame,
-  // ⭐ findOrCreateOpenGame をエクスポート
+  //  findOrCreateOpenGame をエクスポート
   findOrCreateOpenGame,
 };

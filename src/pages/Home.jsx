@@ -42,13 +42,11 @@ const Home = () => {
   
   // オープンマッチング開始時の処理
   const handleOpenMatching = () => {
-    // Matchmaking画面へ遷移し、type: 'open' を渡す
     navigate('/matchmaking', { state: { type: 'open' } });
   };
 
   // プライベートマッチング開始時の処理
   const handlePrivateMatching = () => {
-    // ⭐ 修正: Settings ではなく、新しい PrivateMatchOptions 画面へ遷移
     navigate('/private-options');
   };
 
@@ -60,7 +58,7 @@ const Home = () => {
       {/* 1. オープンマッチング */}
       <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
         <h3>🌎 オープンマッチ</h3>
-        <p style={{ color: '#555' }}>デフォルト設定で、ランダムな対戦相手と即座にマッチングします。</p>
+        <p style={{ color: '#555' }}>デフォルトの設定で、ランダムな対戦相手とマッチングします。</p>
         <button 
           onClick={handleOpenMatching} 
           style={primaryButtonStyle}

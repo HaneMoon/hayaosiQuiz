@@ -40,7 +40,7 @@ const Settings = ({ onRulesConfirmed }) => {
 
     onRulesConfirmed(settings);
 
-    // ⭐ 設定完了後、Matchmaking画面へ自動遷移し、タイプ='private'、役割='host'を渡す
+    //  設定完了後、Matchmaking画面へ自動遷移し、タイプ='private'、役割='host'を渡す
     navigate("/matchmaking", { state: { type: "private", role: "host" } });
   };
 

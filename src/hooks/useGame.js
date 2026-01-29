@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { onValue, ref, get, update, remove } from 'firebase/database';
-// ⭐ db.js からインポートする関数を更新
+//  db.js からインポートする関数を更新
 import { db, createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
 import { QUIZ_QUESTIONS } from '../utils/constants'; 
 
@@ -32,7 +32,7 @@ const subjectNodeMap = {
  */
 const useGame = (initialGameId, myPlayerId) => {
   const [gameId, setGameId] = useState(initialGameId);
-  // ⭐ null ではなく、初期オブジェクトを使用
+  //  null ではなく、初期オブジェクトを使用
   const [gameState, setGameState] = useState({
       id: initialGameId,
       players: {},
@@ -44,7 +44,7 @@ const useGame = (initialGameId, myPlayerId) => {
   const [opponentName, setOpponentName] = useState('');
   // 問題リストの状態を追加（ホストが一度だけ取得し、Stateに保存）
   const [questionList, setQuestionList] = useState(null); 
-  // ⭐ 追加: 問題リストのロード状態を追跡
+  //  追加: 問題リストのロード状態を追跡
   const [questionsLoaded, setQuestionsLoaded] = useState(false);
   
   // 自分がホストかどうかを判定
@@ -84,14 +84,14 @@ const useGame = (initialGameId, myPlayerId) => {
                 const questionId = q.questionId || q.id || `firebase_${Object.keys(combinedQuestions).length}`;
                 if (!combinedQuestions[questionId]) {
                     
-                    // ⭐ 修正: オブジェクト配列からテキストの文字列配列に変換する
+                    //  修正: オブジェクト配列からテキストの文字列配列に変換する
                     const rawOptions = q.options ? (Array.isArray(q.options) ? q.options : Object.values(q.options)) : [];
                     // provided JSON format: options: [ {text: "...", isCorrect: bool}, ... ]
                     const optionTexts = rawOptions.map(opt => opt.text); 
 
                     combinedQuestions[questionId] = {
                         ...q,
-                        // ⭐ 修正: optionsを文字列配列として格納
+                        //  修正: optionsを文字列配列として格納
                         options: optionTexts, 
                         source: 'firebase', 
                     };
@@ -186,7 +186,7 @@ const useGame = (initialGameId, myPlayerId) => {
       
       const nextQuestionId = nextQuestion.questionId || nextQuestion.id || 'q_fallback_' + nextQuestionIndex; 
 
-      // ⭐ optionsは既に文字列配列であることを前提にシャッフル
+      //  optionsは既に文字列配列であることを前提にシャッフル
       let shuffledOptions = nextQuestion.options;
       if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
         shuffledOptions = shuffleArray([...shuffledOptions]);
@@ -200,7 +200,7 @@ const useGame = (initialGameId, myPlayerId) => {
           text: nextQuestion.text,
           answer: nextQuestion.answer,
           isSelectable: nextQuestion.isSelectable,
-          options: shuffledOptions || null, // ⭐ シャッフルした文字列配列を使用
+          options: shuffledOptions || null, //  シャッフルした文字列配列を使用
           buzzedPlayerId: null, 
           answererId: null, 
           status: 'reading',
@@ -238,7 +238,7 @@ const useGame = (initialGameId, myPlayerId) => {
     
     const initialQuestionId = initialQuestion.questionId || initialQuestion.id || 'q_fallback_0';
 
-    // ⭐ optionsは既に文字列配列であることを前提にシャッフル
+    //  optionsは既に文字列配列であることを前提にシャッフル
     let shuffledOptions = initialQuestion.options;
     if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
         shuffledOptions = shuffleArray([...shuffledOptions]);
@@ -254,7 +254,7 @@ const useGame = (initialGameId, myPlayerId) => {
             text: initialQuestion.text,
             answer: initialQuestion.answer,
             isSelectable: initialQuestion.isSelectable,
-            options: shuffledOptions || null, // ⭐ シャッフルした文字列配列を使用
+            options: shuffledOptions || null, //  シャッフルした文字列配列を使用
             buzzedPlayerId: null, 
             answererId: null, 
             status: 'reading', 
@@ -315,7 +315,7 @@ const useGame = (initialGameId, myPlayerId) => {
     const submittedAnswer = currentQ.submittedAnswer;
     const correctAnswer = currentQ.answer; 
 
-    // ⭐ 判定ロジックは、submittedAnswerとcorrectAnswer (正解のテキスト) の一致を確認するため、変更なしでOK
+    //  判定ロジックは、submittedAnswerとcorrectAnswer (正解のテキスト) の一致を確認するため、変更なしでOK
     const isCorrect = submittedAnswer.trim() === correctAnswer.trim(); 
 
     const handleJudgment = async () => {
@@ -340,7 +340,7 @@ const useGame = (initialGameId, myPlayerId) => {
 
         } else {
             const penaltyType = gameState.rules.wrongAnswerPenalty;
-            const playerCount = Object.keys(gameState.players).length; // ⭐ プレイヤーの総数を取得
+            const playerCount = Object.keys(gameState.players).length; //  プレイヤーの総数を取得
             let newScore = gameState.players[answererId]?.score || 0;
             let updates = {
                 'currentQuestion/status': 'answered_wrong', // 初期値としてセット
@@ -349,31 +349,31 @@ const useGame = (initialGameId, myPlayerId) => {
                 'currentQuestion/submitterId': null, 
             };
             
-            let shouldAdvanceToNextQuestion = false; // ⭐ 次の問題へ進むべきか判定するフラグ
+            let shouldAdvanceToNextQuestion = false; //  次の問題へ進むべきか判定するフラグ
 
             if (penaltyType === 'minus_one') {
                 newScore = Math.max(0, newScore - 1); 
                 updates[`players/${answererId}/score`] = newScore; 
                 console.log(`[Host Judgment] 誤答 (マイナス1点)。スコアが ${newScore} になりました。`);
 
-                shouldAdvanceToNextQuestion = true; // ⭐ 'minus_one' の場合は即座に次の問題へ
+                shouldAdvanceToNextQuestion = true; //  'minus_one' の場合は即座に次の問題へ
 
             } else if (penaltyType === 'lockout') {
                 const lockedOutPlayers = currentQ.lockedOutPlayers || [];
                 // ロックアウトプレイヤーリストに追加
                 updates['currentQuestion/lockedOutPlayers'] = [...lockedOutPlayers, answererId]; 
                 
-                // ⭐ status を一時的に 'judging' のままにするか、または次の早押しを待つために 'reading' に戻す
+                //  status を一時的に 'judging' のままにするか、または次の早押しを待つために 'reading' に戻す
                 updates['currentQuestion/status'] = 'reading'; 
                 updates['currentQuestion/buzzedPlayerId'] = null; // 早押しをリセット
 
                 const nextLockedOutCount = lockedOutPlayers.length + 1;
                 
-                // ⭐ プレイヤー全員がロックアウトされたかチェック
+                //  プレイヤー全員がロックアウトされたかチェック
                 if (nextLockedOutCount >= playerCount) {
                     console.log(`[Host Judgment] 誤答 (ロックアウト)。全プレイヤー (${playerCount}人) がロックアウトされました。次の問題へ移行します。`);
                     updates['currentQuestion/status'] = 'answered_wrong'; // 終了ステータスに変更
-                    shouldAdvanceToNextQuestion = true; // ⭐ 全員ロックアウトの場合は次の問題へ
+                    shouldAdvanceToNextQuestion = true; //  全員ロックアウトの場合は次の問題へ
                 } else {
                     console.log(`[Host Judgment] 誤答 (ロックアウト)。プレイヤー ${answererId} はこの問題に解答できません。`);
                 }
@@ -381,7 +381,7 @@ const useGame = (initialGameId, myPlayerId) => {
             
             await update(gameRef, updates);
             
-            // ⭐ 次の問題へ進むべき場合にタイマーを設定
+            //  次の問題へ進むべき場合にタイマーを設定
             if (shouldAdvanceToNextQuestion) {
                 setTimeout(() => {
                     setNextQuestion(gameId, gameState.currentQuestionIndex);
@@ -413,7 +413,7 @@ const useGame = (initialGameId, myPlayerId) => {
 
   // --- マッチング処理（db.jsの関数をラップ） (変更なし) ---
   
-  // ⭐ createHostGame の定義を更新: isOpenMatch を受け取るようにする
+  //  createHostGame の定義を更新: isOpenMatch を受け取るようにする
   const createHostGame = useCallback(async (ruleSettings, hostPlayer, isOpenMatch = false) => {
     const newGameId = await createNewGameWithRandom4DigitId(ruleSettings, hostPlayer, isOpenMatch);
     setGameId(newGameId);
@@ -438,7 +438,7 @@ const useGame = (initialGameId, myPlayerId) => {
   };
 
   // --- リアルタイムデータ同期 ---
-  // ⭐ 修正: プレイヤーが揃ったら、問題ロードを開始するロジックに変更
+  //  修正: プレイヤーが揃ったら、問題ロードを開始するロジックに変更
   useEffect(() => {
     if (!gameId) return;
 
@@ -479,7 +479,7 @@ const useGame = (initialGameId, myPlayerId) => {
     return () => unsubscribe();
   }, [gameId, myPlayerId, fetchQuestionsForGame, questionList, questionsLoaded]); 
   
-  // ⭐ 追加: 問題ロード完了をトリガーとしてゲームを開始する
+  //  追加: 問題ロード完了をトリガーとしてゲームを開始する
   useEffect(() => {
       // ホストであり、ロードが完了し、問題リストがあり、ステータスが'waiting'ならゲーム開始
       if (isHost && questionsLoaded && questionList && gameState?.status === 'waiting') {

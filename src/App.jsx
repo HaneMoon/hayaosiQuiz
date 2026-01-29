@@ -3,14 +3,14 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 
-// ページコンポーネントを動的インポートに置き換える (Code Splitting) ⭐
+// ページコンポーネントを動的インポートに置き換える (Code Splitting) 
 const Home = lazy(() => import('./pages/Home.jsx')); 
 const Settings = lazy(() => import('./pages/Settings.jsx')); 
 const Matchmaking = lazy(() => import('./pages/Matchmaking.jsx'));
 const Game = lazy(() => import('./pages/Game.jsx'));
 const QuestionAdmin = lazy(() => import('./pages/QuestionAdmin.jsx'));
 const QuestionReview = lazy(() => import('./pages/QuestionReview.jsx')); 
-// ⭐ 新しいコンポーネントをインポート
+//  新しいコンポーネントをインポート
 const PrivateMatchOptions = lazy(() => import('./pages/PrivateMatchOption.jsx')); 
 
 import './App.scss';
@@ -70,7 +70,7 @@ const App = () => {
   );
 };
 
-// ⭐ useLocation を使用するためのラッパーコンポーネント
+//  useLocation を使用するためのラッパーコンポーネント
 const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handleGameReady, handleGameEnd }) => {
   const location = useLocation();
   const isGameRoute = location.pathname.startsWith('/game');
@@ -94,7 +94,7 @@ const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handle
           <Routes>
             <Route path="/" element={<Home />} />
 
-            {/* ⭐ 新しい選択画面のルートを追加 */}
+            {/*  新しい選択画面のルートを追加 */}
             <Route path="/private-options" element={<PrivateMatchOptions />} />
 
             <Route 
