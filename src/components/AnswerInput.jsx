@@ -24,9 +24,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
             if (!isAnswerSelectable && answer.trim()) { 
                 onSubmitAnswer(answer);
                 setAnswer('');
-            }
-            // 選択肢式の場合はボタンクリックを推奨するため、Enterでは何もしない
-            
+            } 
         } else {
             //早押し待機中の場合: 早押しを実行
             onBuzz(); 
@@ -42,10 +40,10 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
   // --- スタイル定義 ---
   const fixedButtonContainerStyle = {
     position: 'fixed', // 画面下部に固定
-    bottom: '20px',    // 画面下端から20px上
-    left: '50%',       // 横方向の中央
-    transform: 'translateX(-50%)', // 中央揃え
-    width: isMyTurn ? 'auto' : '80%', // 早押しボタンは広く、解答オプションは自動幅
+    bottom: '20px',
+    left: '50%', 
+    transform: 'translateX(-50%)', 
+    width: isMyTurn ? 'auto' : '80%', 
     maxWidth: isMyTurn ? '90%' : '500px',
     display: 'flex',
     justifyContent: 'center',
@@ -75,7 +73,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
           onClick={onBuzz} 
           style={{ 
             ...largeButtonStyle, 
-            backgroundColor: '#ff0505ff', // Warningカラー
+            backgroundColor: '#ff0505ff',
             color: '#ffffffff',
           }}
         >
@@ -108,10 +106,10 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
                           fontWeight: 'bold',
                           borderRadius: '10px',
                           border: '1px solid #007bff', 
-                          backgroundColor: '#007bff', // Primaryカラー
+                          backgroundColor: '#007bff',
                           color: 'white',
                           minWidth: '120px',
-                          flexGrow: 1, // 均等幅を試みる
+                          flexGrow: 1, 
                           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                       }}
                   >
@@ -122,7 +120,6 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
         </div>
       ) : (
         // オプションが存在しない場合、または isAnswerSelectable が false の場合の記述式
-        // Enterキーでも送信できるようにロジックはuseEffectにあり、ここではボタンクリックを実装
         <div style={{ display: 'flex', width: '100%', maxWidth: '400px', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           <input 
             type="text" 
@@ -147,7 +144,7 @@ const AnswerInput = ({ onBuzz, onSubmitAnswer, isMyTurn, isAnswerSelectable, opt
                 ...largeButtonStyle, 
                 padding: '15px 30px', 
                 fontSize: '1.5em',
-                backgroundColor: '#28a745', // Successカラー
+                backgroundColor: '#28a745',
                 color: 'white',
                 width: '100%',
             }}

@@ -6,8 +6,8 @@ import { SUBJECTS, GRADES } from '../utils/constants'; // 定数をインポー�
 const QuestionAdmin = () => {
   const [questionData, setQuestionData] = useState({
     subject: SUBJECTS[0] || '国語',
-    grade: GRADES[0] || '小1', //  修正: 初期の学年をGRADSの最初の要素（小1）に設定
-    type: '選択式', //  修正: デフォルトを '選択式' に変更
+    grade: GRADES[0] || '小1',
+    type: '選択式',
     text: '',
     answer: '',
     explanation: '',
@@ -16,7 +16,7 @@ const QuestionAdmin = () => {
   const [message, setMessage] = useState('');
 
   // 選択肢の状態管理 (選択肢を動的に追加・削除するため)
-  const [optionInputs, setOptionInputs] = useState(['', '', '', '']); // 4つの入力欄を初期化
+  const [optionInputs, setOptionInputs] = useState(['', '', '', '']); 
   const [correctIndex, setCorrectIndex] = useState(null);
 
   // --- 入力値の変更ハンドラ ---
@@ -34,7 +34,7 @@ const QuestionAdmin = () => {
 
   // --- データのバリデーションと整形 ---
   const validateAndFormatData = () => {
-    // ★ 修正点: questionData を直接操作せず、コピーを作成 (dataToSave)
+    //  修正点: questionData を直接操作せず、コピーを作成 (dataToSave)
     let dataToSave = { ...questionData };
     
     if (!dataToSave.text || !dataToSave.subject) {
@@ -60,7 +60,7 @@ const QuestionAdmin = () => {
       // 正しい解答を answer フィールドにも設定
       const correctOption = finalOptions.find(opt => opt.isCorrect);
       if (correctOption) {
-        // ★ 修正点: コピーしたオブジェクトのプロパティを変更する
+        //  修正点: コピーしたオブジェクトのプロパティを変更する
         dataToSave.answer = correctOption.text; 
       } else {
          setMessage('選択式の場合、正しい解答の指定が必要です。');

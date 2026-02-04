@@ -17,7 +17,7 @@ const ResultDisplay = ({ winnerName, myPlayerName, onReturnHome }) => {
       <h2> ゲーム終了！</h2>
       
       {isWinner ? (
-        <h1 style={{ color: 'gold', fontSize: '3em' }}>🏆 勝利! 🏆</h1>
+        <h1 style={{ color: 'gold', fontSize: '3em' }}> 勝利! </h1>
       ) : (
         <h1 style={{ color: 'red', fontSize: '3em' }}>残念... 敗北</h1>
       )}

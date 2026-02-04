@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { onValue, ref, get, update, remove } from 'firebase/database';
-//  db.js からインポートする関数を更新
 import { db, createNewGameWithRandom4DigitId, addClientToGame } from '../firebase/db'; 
 import { QUIZ_QUESTIONS } from '../utils/constants'; 
 
@@ -16,7 +15,7 @@ const shuffleArray = (array) => {
     return array;
 };
 
-// 教科名の日本語とFirebaseノード名のマッピング
+// 教科名の日本語とFirebaseノード名を対応させる
 const subjectNodeMap = {
     '国語': 'japanese',
     '数学': 'mathematics',
@@ -26,13 +25,11 @@ const subjectNodeMap = {
 };
 
 /**
- * ゲームの状態管理とFirebaseとの通信を担うメインフック
- * @param {string | null} initialGameId - 現在接続しているゲームID (マッチング後は設定される)
- * @param {string} myPlayerId - 自分のプレイヤーID
+ * @param {string | null} initialGameId -
+ * @param {string} myPlayerId 
  */
 const useGame = (initialGameId, myPlayerId) => {
   const [gameId, setGameId] = useState(initialGameId);
-  //  null ではなく、初期オブジェクトを使用
   const [gameState, setGameState] = useState({
       id: initialGameId,
       players: {},
@@ -42,12 +39,9 @@ const useGame = (initialGameId, myPlayerId) => {
       currentQuestionIndex: -1,
   });
   const [opponentName, setOpponentName] = useState('');
-  // 問題リストの状態を追加（ホストが一度だけ取得し、Stateに保存）
   const [questionList, setQuestionList] = useState(null); 
-  //  追加: 問題リストのロード状態を追跡
   const [questionsLoaded, setQuestionsLoaded] = useState(false);
   
-  // 自分がホストかどうかを判定
   const isHost = gameState?.players?.[myPlayerId]?.isHost === true; 
 
   // --- ユーティリティ関数 ---
@@ -63,16 +57,14 @@ const useGame = (initialGameId, myPlayerId) => {
         allFirebaseQuestions = snapshot.val();
         console.log(`[DEBUG: Q Fetch] Loaded Firebase questions. Subjects: ${Object.keys(allFirebaseQuestions).join(', ')}`);
     } else {
-        console.warn("[Game] Firebaseに問題データが見つかりません。");
+        console.warn("Firebaseに問題データが見つかりません。");
     }
 
     let filteredQuestions = [];
     const subjectsToUse = settings?.range?.subjects || Object.keys(subjectNodeMap); 
     const totalQuestionsLimit = settings?.rules?.totalQuestions || 10; 
     
-    console.log(`[DEBUG: Q Fetch] Settings Subjects: ${subjectsToUse.join(', ')}. Limit: ${totalQuestionsLimit}問`);
 
-    // Firebaseからの問題と、ローカルのQUIZ_QUESTIONSを統合
     let combinedQuestions = {};
     
     // --- 1. Firebaseからの問題をcombinedQuestionsに追加 ---
@@ -84,14 +76,11 @@ const useGame = (initialGameId, myPlayerId) => {
                 const questionId = q.questionId || q.id || `firebase_${Object.keys(combinedQuestions).length}`;
                 if (!combinedQuestions[questionId]) {
                     
-                    //  修正: オブジェクト配列からテキストの文字列配列に変換する
                     const rawOptions = q.options ? (Array.isArray(q.options) ? q.options : Object.values(q.options)) : [];
-                    // provided JSON format: options: [ {text: "...", isCorrect: bool}, ... ]
                     const optionTexts = rawOptions.map(opt => opt.text); 
 
                     combinedQuestions[questionId] = {
                         ...q,
-                        //  修正: optionsを文字列配列として格納
                         options: optionTexts, 
                         source: 'firebase', 
                     };
@@ -104,12 +93,8 @@ const useGame = (initialGameId, myPlayerId) => {
     QUIZ_QUESTIONS.forEach(q => {
         if (subjectsToUse.includes(q.subject)) {
             const questionId = q.id || `local_${Object.keys(combinedQuestions).length}`;
-            if (!combinedQuestions[questionId]) {
-                
-                // ローカルのQUIZ_QUESTIONSもoptionsが文字列配列であることを期待
+            if (!combinedQuestions[questionId]) {                
                 let localOptionTexts = Array.isArray(q.options) ? q.options : null;
-                // ただし、ローカルのQUIZ_QUESTIONSは既に文字列配列として定義されていることが多い
-                // 念のため、ローカルが{text: ..., isCorrect: ...}形式だったら対応
                 if (localOptionTexts && localOptionTexts.length > 0 && typeof localOptionTexts[0] === 'object') {
                    localOptionTexts = localOptionTexts.map(opt => opt.text);
                 }
@@ -125,7 +110,6 @@ const useGame = (initialGameId, myPlayerId) => {
 
     // --- 3. 最終的なリストの生成、シャッフル、切り詰め ---
     filteredQuestions = Object.values(combinedQuestions).map(q => {
-        // isSelectableはoptionsが文字列配列として存在するかで判定
         const hasValidOptions = Array.isArray(q.options) && q.options.length > 0;
         return {
             ...q,
@@ -134,7 +118,6 @@ const useGame = (initialGameId, myPlayerId) => {
     });
     
     if (filteredQuestions.length === 0) {
-        console.warn("[Game] 設定された条件に合う問題がFirebase/ローカルで見つかりません。全てのローカルQUIZ_QUESTIONSを代替として使用します。");
         filteredQuestions = QUIZ_QUESTIONS.map(q => ({
             ...q,
             isSelectable: Array.isArray(q.options) && q.options.length > 0, 
@@ -147,7 +130,6 @@ const useGame = (initialGameId, myPlayerId) => {
 
     setQuestionList(finalQuestionList);
     setQuestionsLoaded(true); 
-    console.log(`[Game] 最終的な問題リストを作成しました。合計 ${finalQuestionList.length} 問 (最大 ${totalQuestionsLimit} 問)。`);
     return finalQuestionList;
 
   }, []);
@@ -155,7 +137,7 @@ const useGame = (initialGameId, myPlayerId) => {
   // 次の問題を設定する関数 (ホスト専用)
   const setNextQuestion = useCallback(async (id, currentQuestionIndex) => {
     if (!questionList) {
-        console.error("[Game] 問題リストがまだロードされていません。");
+        console.error("問題リストがまだロードされていません。");
         return;
     }
     
@@ -168,7 +150,6 @@ const useGame = (initialGameId, myPlayerId) => {
     const isPlayerWon = Object.values(players).some(p => p.score >= winPoints);
 
     if (isPlayerWon) {
-        console.log("[Game] どちらかのプレイヤーが勝利点に達しました。リザルト画面に移行します。");
         const playerScores = Object.values(players).map(p => ({ id: p.id, score: p.score }));
         const potentialWinners = playerScores.filter(p => p.score >= winPoints);
         const winner = potentialWinners.reduce((prev, current) => (prev.score > current.score) ? prev : current, { score: -1 });
@@ -186,11 +167,9 @@ const useGame = (initialGameId, myPlayerId) => {
       
       const nextQuestionId = nextQuestion.questionId || nextQuestion.id || 'q_fallback_' + nextQuestionIndex; 
 
-      //  optionsは既に文字列配列であることを前提にシャッフル
       let shuffledOptions = nextQuestion.options;
       if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
         shuffledOptions = shuffleArray([...shuffledOptions]);
-        console.log(`[Shuffle] Question #${nextQuestionId} の選択肢をシャッフルしました。`);
       }
 
       await update(gameRef, {
@@ -207,9 +186,7 @@ const useGame = (initialGameId, myPlayerId) => {
           lockedOutPlayers: [], 
         }
       });
-      console.log(`[Game] 次の問題 #${nextQuestionId} (${nextQuestion.source}) を設定しました。`);
     } else {
-        console.log("[Game] 全ての問題が終了しました。リザルト画面に移行します。");
         const playerScores = Object.values(players).map(p => ({ id: p.id, score: p.score }));
         const winner = playerScores.reduce((prev, current) => (prev.score > current.score) ? prev : current);
         
@@ -238,7 +215,6 @@ const useGame = (initialGameId, myPlayerId) => {
     
     const initialQuestionId = initialQuestion.questionId || initialQuestion.id || 'q_fallback_0';
 
-    //  optionsは既に文字列配列であることを前提にシャッフル
     let shuffledOptions = initialQuestion.options;
     if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
         shuffledOptions = shuffleArray([...shuffledOptions]);
@@ -254,7 +230,7 @@ const useGame = (initialGameId, myPlayerId) => {
             text: initialQuestion.text,
             answer: initialQuestion.answer,
             isSelectable: initialQuestion.isSelectable,
-            options: shuffledOptions || null, //  シャッフルした文字列配列を使用
+            options: shuffledOptions || null, 
             buzzedPlayerId: null, 
             answererId: null, 
             status: 'reading', 
@@ -281,12 +257,11 @@ const useGame = (initialGameId, myPlayerId) => {
         'currentQuestion/answererId': myPlayerId, 
         'currentQuestion/status': 'answering', 
     });
-    console.log(`[Buzz] プレイヤー ${myPlayerId} が早押ししました。`);
 
   }, [gameId, gameState, myPlayerId]);
 
 
-  // --- 解答送信処理 (クライアント/ホスト共通) ---
+  // --- 解答送信処理 (クライアントとホスト共通) ---
   const submitAnswer = useCallback(async (answerText) => {
     if (!gameId || gameState?.status !== 'playing' || gameState.currentQuestion?.answererId !== myPlayerId) return;
 
@@ -298,7 +273,6 @@ const useGame = (initialGameId, myPlayerId) => {
         'currentQuestion/status': 'judging', 
     });
     
-    console.log(`[Answer] 解答: "${answerText}" を提出しました。ホストの判定を待っています。`);
 
   }, [gameId, gameState, myPlayerId]); 
 
@@ -332,7 +306,6 @@ const useGame = (initialGameId, myPlayerId) => {
                 'currentQuestion/submittedAnswer': null, 
                 'currentQuestion/submitterId': null, 
             });
-            console.log(`[Host Judgment] 正解！プレイヤー ${answererId} のスコアが ${newScore} になりました。`);
 
             setTimeout(() => {
                 setNextQuestion(gameId, gameState.currentQuestionIndex);
@@ -354,25 +327,19 @@ const useGame = (initialGameId, myPlayerId) => {
             if (penaltyType === 'minus_one') {
                 newScore = Math.max(0, newScore - 1); 
                 updates[`players/${answererId}/score`] = newScore; 
-                console.log(`[Host Judgment] 誤答 (マイナス1点)。スコアが ${newScore} になりました。`);
-
                 shouldAdvanceToNextQuestion = true; //  'minus_one' の場合は即座に次の問題へ
 
             } else if (penaltyType === 'lockout') {
                 const lockedOutPlayers = currentQ.lockedOutPlayers || [];
-                // ロックアウトプレイヤーリストに追加
-                updates['currentQuestion/lockedOutPlayers'] = [...lockedOutPlayers, answererId]; 
-                
-                //  status を一時的に 'judging' のままにするか、または次の早押しを待つために 'reading' に戻す
+                updates['currentQuestion/lockedOutPlayers'] = [...lockedOutPlayers, answererId];                 
                 updates['currentQuestion/status'] = 'reading'; 
                 updates['currentQuestion/buzzedPlayerId'] = null; // 早押しをリセット
 
                 const nextLockedOutCount = lockedOutPlayers.length + 1;
                 
-                //  プレイヤー全員がロックアウトされたかチェック
                 if (nextLockedOutCount >= playerCount) {
                     console.log(`[Host Judgment] 誤答 (ロックアウト)。全プレイヤー (${playerCount}人) がロックアウトされました。次の問題へ移行します。`);
-                    updates['currentQuestion/status'] = 'answered_wrong'; // 終了ステータスに変更
+                    updates['currentQuestion/status'] = 'answered_wrong'; 
                     shouldAdvanceToNextQuestion = true; //  全員ロックアウトの場合は次の問題へ
                 } else {
                     console.log(`[Host Judgment] 誤答 (ロックアウト)。プレイヤー ${answererId} はこの問題に解答できません。`);
@@ -381,7 +348,6 @@ const useGame = (initialGameId, myPlayerId) => {
             
             await update(gameRef, updates);
             
-            //  次の問題へ進むべき場合にタイマーを設定
             if (shouldAdvanceToNextQuestion) {
                 setTimeout(() => {
                     setNextQuestion(gameId, gameState.currentQuestionIndex);
@@ -394,19 +360,16 @@ const useGame = (initialGameId, myPlayerId) => {
 
   }, [isHost, gameState, setNextQuestion, initialGameId]);
 
-  // ゲームルームをFirebaseから完全に削除する関数 (ホスト専用)
   const deleteGameRoom = useCallback(async () => {
     if (!gameId || !isHost) {
-        console.warn("[Delete] 部屋の削除はホストのみ可能です。");
         return;
     }
     
     const gameRef = ref(db, `games/${gameId}`);
     try {
         await remove(gameRef);
-        console.log(`[Delete] ゲームルームID ${gameId} をFirebaseから削除しました。`);
     } catch (error) {
-        console.error(`[Delete] ゲームルーム ${gameId} の削除に失敗しました:`, error);
+        console.error(`${gameId} の削除に失敗`, error);
     }
   }, [gameId, isHost]);
 
@@ -425,20 +388,18 @@ const useGame = (initialGameId, myPlayerId) => {
     
     const snapshot = await get(gameRef);
     if (!snapshot.exists()) {
-      throw new Error('指定された部屋IDのゲームは存在しません。');
+      throw new Error('部屋が見つかりませんでした。');
     }
     
     const currentStatus = snapshot.val().status;
     if (currentStatus !== 'waiting') {
-      throw new Error('このゲームは既に開始されています。');
+      throw new Error('すでに試合が始まっています。');
     }
 
     await addClientToGame(targetGameId, clientPlayer);
     setGameId(targetGameId);
   };
 
-  // --- リアルタイムデータ同期 ---
-  //  修正: プレイヤーが揃ったら、問題ロードを開始するロジックに変更
   useEffect(() => {
     if (!gameId) return;
 
