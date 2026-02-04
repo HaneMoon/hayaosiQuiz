@@ -218,7 +218,7 @@ const useGame = (initialGameId, myPlayerId) => {
     let shuffledOptions = initialQuestion.options;
     if (Array.isArray(shuffledOptions) && shuffledOptions.length > 0) {
         shuffledOptions = shuffleArray([...shuffledOptions]);
-        console.log(`[Shuffle] Question #${initialQuestionId} の選択肢をシャッフルしました。`);
+        console.log(`Question #${initialQuestionId} の選択肢をシャッフルしました。`);
     }
 
     await update(gameRef, {

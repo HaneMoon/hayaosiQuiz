@@ -90,7 +90,7 @@ const Settings = ({ onRulesConfirmed }) => {
       </div>
       <div></div>
 
-      <button onClick={handleSubmit}>設定を確定してマッチングへ</button>
+      <button onClick={handleSubmit}>設定を保存する</button>
     </div>
   );
 };

@@ -53,7 +53,7 @@ const App = () => {
   const handleGameEnd = () => {
     setGameId(null);
     setSettings(null);
-    console.log("ゲーム終了: グローバルなゲームIDをリセットしました。");
+    console.log("ゲーム終了: ゲームIDをリセットしました。");
   };
 
   return (
@@ -79,12 +79,12 @@ const AppContent = ({ settings, gameId, myPlayerId, handleRulesConfirmed, handle
     <>
       {!isGameRoute && (
         <header>
-          <h1>早押しクイズバトル F班</h1>
+          <h1 className="text-center fs-1">Answer X</h1>
             <nav className="nav justify-content-center">
             <Link to="/" className="btn btn-primary m-1">ホーム</Link>
             <Link to="/settings" className="btn btn-success m-1">問題設定</Link>
-            <Link to="/admin" className="btn btn-danger m-1">問題追加</Link> 
-            <Link to="/review" className="btn btn-danger m-1">問題確認・削除</Link> 
+            {/* <Link to="/admin" className="btn btn-danger m-1">問題追加</Link>  */}
+            {/* <Link to="/review" className="btn btn-danger m-1">問題確認・削除</Link>  */}
           </nav>
         </header>
       )}

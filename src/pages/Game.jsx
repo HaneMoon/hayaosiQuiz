@@ -56,7 +56,7 @@ const Game = ({ myPlayerId, onGameEnd, propGameId }) => {
     // もしゲームIDが確定していない状態でアクセスしたらホームへ戻す
     if (!actualGameId || (!gameState && !routeGameId && !propGameId)) {
       // DEBUG: リダイレクトが発生した場合のログ
-      console.log(`[DEBUG] Game.jsx: ゲームIDまたは状態が見つかりません (${actualGameId})。ホームへリダイレクトします。`);
+      console.log(`Game.jsx: ゲームIDまたは状態が見つかりません (${actualGameId})。ホームへリダイレクトします。`);
       navigate('/');
       return;
     }
